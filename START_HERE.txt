@@ -1,0 +1,137 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   💀 BOT DISCORD DE GAMBLING - SKULL CASINO 🎰              ║
+║                                                              ║
+║   PAR OÙ COMMENCER? SUIS CES ÉTAPES!                        ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+📋 ÉTAPE 1: INSTALLER PYTHON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Va sur: https://www.python.org/downloads/
+→ Télécharge Python 3.8 ou plus récent
+→ IMPORTANT: Coche "Add Python to PATH" pendant l'installation!
+→ Redémarre ton ordinateur après l'installation
+
+
+📋 ÉTAPE 2: OBTENIR UN TOKEN DISCORD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Va sur: https://discord.com/developers/applications
+→ Clique "New Application"
+→ Donne un nom: "Skull Casino" (ou autre)
+→ Va dans "Bot" (menu de gauche)
+→ Clique "Add Bot" → Confirme
+→ Active CES 3 INTENTS (très important!):
+   ✅ Presence Intent
+   ✅ Server Members Intent
+   ✅ Message Content Intent
+→ Clique "Reset Token" → COPIE TON TOKEN
+→ ⚠️ GARDE-LE SECRET! Ne le partage JAMAIS!
+
+
+📋 ÉTAPE 3: CONFIGURER LE BOT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Ouvre le fichier "bot.py" avec un éditeur de texte
+→ Va tout en bas (ligne ~220)
+→ Trouve: await bot.start('TON_TOKEN_ICI')
+→ Remplace TON_TOKEN_ICI par ton token (garde les guillemets!)
+→ Exemple: await bot.start('MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.Ghijk.lmnop-qrstuVWxyz123456789')
+→ Sauvegarde le fichier!
+
+
+📋 ÉTAPE 4: INSTALLER LES DÉPENDANCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Ouvre un terminal/invite de commandes
+→ Va dans le dossier du bot (cd chemin/vers/discord_gambling_bot)
+→ Tape: pip install -r requirements.txt
+→ Appuie sur Entrée
+→ Attends que ça s'installe (~30 secondes)
+
+
+📋 ÉTAPE 5: LANCER LE BOT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Dans le terminal, tape: python start.py
+→ OU directement: python bot.py
+→ Tu devrais voir:
+   ✅ Bot connecté en tant que [Nom du bot]
+   💀 Monnaie: Skull 💀
+   🎰 40 commandes chargées
+→ Le bot est ONLINE! 🎉
+
+
+📋 ÉTAPE 6: INVITER LE BOT SUR TON SERVEUR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Retourne sur Discord Developer Portal
+→ Va dans "OAuth2" → "URL Generator"
+→ Coche: "bot"
+→ Permissions: Coche "Administrator" (ou sélectionne manuellement)
+→ Copie le lien généré en bas
+→ Colle-le dans ton navigateur
+→ Sélectionne ton serveur
+→ Autorise!
+
+
+📋 ÉTAPE 7: TESTER LE BOT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sur Discord, tape:
+→ !help                  (Menu d'aide)
+→ !daily                 (Réclamer 100 Skulls)
+→ !balance               (Voir ton solde)
+→ !coinflip heads 50     (Jouer au coinflip)
+→ !slots 100             (Jouer aux slots)
+
+
+╔══════════════════════════════════════════════════════════════╗
+║                      🎉 C'EST TOUT!                          ║
+║                                                              ║
+║         TON BOT DE GAMBLING EST PRÊT À UTILISER!             ║
+║                                                              ║
+║            Bon gambling! 💀🎰🎲                               ║
+╚══════════════════════════════════════════════════════════════╝
+
+
+📚 BESOIN D'AIDE?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lis ces fichiers dans l'ordre:
+
+1. QUICKSTART.md      → Guide de démarrage détaillé
+2. README.md          → Documentation complète
+3. COMMANDS.md        → Toutes les commandes
+4. RÉSUMÉ_FINAL.md    → Résumé du projet
+
+
+🔧 PROBLÈMES COURANTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ "discord not found"
+   → pip install discord.py
+
+❌ "Improper token"
+   → Vérifie ton token dans bot.py
+
+❌ Les commandes ne marchent pas
+   → Vérifie que les 3 intents sont activés
+
+❌ Le bot se déconnecte
+   → Normal si tu quittes le serveur (sécurité owner)
+
+
+💡 ASTUCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+→ Commence toujours par !daily pour avoir des Skulls
+→ Utilise !help games pour voir tous les jeux
+→ Crée des paris avec !createbet (Admin)
+→ Défie tes amis avec !duel
+→ Consulte !stats pour suivre ta progression
+
+
+═══════════════════════════════════════════════════════════════
+
+      🎰 SKULL CASINO - Bot de Gambling Discord 💀
+      
+      14 Jeux | Système d'Économie | Stats Détaillées
+      Paris Personnalisés | Leaderboards | Et plus!
+      
+═══════════════════════════════════════════════════════════════
