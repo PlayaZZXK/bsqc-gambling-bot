@@ -4,9 +4,15 @@ from datetime import datetime
 import os
 
 class Database:
-    def __init__(self, db_path='data/economy.db'):
+    def __init__(self, db_path=None):
         """Initialise la base de données SQLite"""
-        os.makedirs('data', exist_ok=True)
+        # Utiliser /data si disponible (Render persistent disk), sinon ./data
+        if db_path is None:
+            if os.path.exists('/data'):
+                db_path = '/data/economy.db'
+            else:
+                db_path = 'data/economy.db'
+                os.makedirs('data', exist_ok=True)
         self.db_path = db_path
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row  # Pour accéder aux colonnes par nom
