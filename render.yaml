@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: bsqc-gambling-bot
+    env: python
+    runtime: python-3.11.9
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
