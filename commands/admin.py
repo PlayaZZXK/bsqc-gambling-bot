@@ -41,7 +41,7 @@ class Admin(commands.Cog):
 
     @app_commands.command(name='botstats', description='Statistiques du bot (Admin)')
     @app_commands.checks.has_permissions(administrator=True)
-    async def bot_stats(self, interaction: discord.Interaction):
+    async def botstats_cmd(self, interaction: discord.Interaction):
         """Afficher les statistiques du bot depuis la base de données"""
 
         # Récupérer les stats depuis SQLite
