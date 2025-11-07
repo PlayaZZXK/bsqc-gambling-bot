@@ -7,6 +7,7 @@ import asyncio
 import signal
 import sys as system
 from database import db
+from keep_alive import keep_alive
 
 # Configuration
 OWNER_ID = 1270241225861234690
@@ -371,6 +372,8 @@ async def main():
             print("[SHUTDOWN] Base de donnees fermee proprement!")
 
 if __name__ == '__main__':
+    # Démarrer le serveur web pour Render
+    keep_alive()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
