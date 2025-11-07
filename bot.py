@@ -362,7 +362,10 @@ async def main():
         try:
             # Récupérer le token depuis les variables d'environnement
             import os
-            TOKEN = os.getenv('DISCORD_TOKEN', 'MTQzMTM4NTM0NTA1OTk4MzQwMA.Gn50--.gFfgSXxav6knQ12Af5mxKSKszMnBSnEbG9mWUA')
+            TOKEN = os.getenv('DISCORD_TOKEN')
+            if not TOKEN:
+                print("[ERROR] DISCORD_TOKEN non defini dans les variables d'environnement!")
+                return
             await bot.start(TOKEN)
         finally:
             # Backup et fermeture propre
