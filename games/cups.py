@@ -14,7 +14,7 @@ class Cups(commands.Cog):
 
     @app_commands.command(name='cups', description='Jeu des gobelets!')
     @app_commands.describe(
-        choix='Ton choix: 1, 2 ou 3'
+        choix='Ton choix: 1, 2 ou 3',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
@@ -60,9 +60,9 @@ class Cups(commands.Cog):
         profile['games_played'] += 1
         profile['total_wagered'] += montant
         add_xp(interaction.user.id, interaction.guild.id, 20 if won else 5)
-embed = discord.Embed(
-            title="🎉 Gagné!" if won else "💔 Perdu!"
-            description=f"{' '.join(cups_display)}\n\n**La balle était sous le gobelet {winning_cup}!**"
+        embed = discord.Embed(
+            title="🎉 Gagné!" if won else "💔 Perdu!",
+            description=f"{' '.join(cups_display)}\n\n**La balle était sous le gobelet {winning_cup}!**",
             color=discord.Color.green() if won else discord.Color.red()
         )
         embed.add_field(name="Résultat", value=f"{'+' if won else '-'}{montant if not won else profit:,} {CURRENCY_NAME}s")

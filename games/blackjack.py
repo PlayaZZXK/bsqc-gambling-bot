@@ -39,8 +39,8 @@ class BlackjackView(discord.ui.View):
     
     def format_hand(self, hand, hide_first=False):
         card_emoji = {
-            'A': '🅰️', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣', '5': '5️⃣'
-            '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣', '10': '🔟'
+            'A': '🅰️', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣', '5': '5️⃣',
+            '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣', '10': '🔟',
             'J': '👨', 'Q': '👸', 'K': '🤴'
         }
         
@@ -75,15 +75,15 @@ class BlackjackView(discord.ui.View):
 
         xp_gain = 25 if won else 10
         leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
-embed = discord.Embed(title=title, description=reason, color=color)
+        embed = discord.Embed(title=title, description=reason, color=color)
         embed.add_field(
-            name="Ta main"
-            value=f"{self.format_hand(self.player_hand)}\n**Valeur: {player_value}**"
+            name="Ta main",
+            value=f"{self.format_hand(self.player_hand)}\n**Valeur: {player_value}**",
             inline=True
         )
         embed.add_field(
-            name="Main du croupier"
-            value=f"{self.format_hand(self.dealer_hand)}\n**Valeur: {dealer_value}**"
+            name="Main du croupier",
+            value=f"{self.format_hand(self.dealer_hand)}\n**Valeur: {dealer_value}**",
             inline=True
         )
         
@@ -115,13 +115,13 @@ embed = discord.Embed(title=title, description=reason, color=color)
         else:
             embed = discord.Embed(title="♠️ Blackjack", color=discord.Color.blue())
             embed.add_field(
-                name="Ta main"
-                value=f"{self.format_hand(self.player_hand)}\n**Valeur: {player_value}**"
+                name="Ta main",
+                value=f"{self.format_hand(self.player_hand)}\n**Valeur: {player_value}**",
                 inline=True
             )
             embed.add_field(
-                name="Main du croupier"
-                value=f"{self.format_hand(self.dealer_hand, hide_first=True)}\n**Valeur: ?**"
+                name="Main du croupier",
+                value=f"{self.format_hand(self.dealer_hand, hide_first=True)}\n**Valeur: ?**",
                 inline=True
             )
             
@@ -149,18 +149,18 @@ embed = discord.Embed(title=title, description=reason, color=color)
         else:
             # Égalité - rendre la mise
             self.profile['balance'] += self.amount
-for item in self.children:
+            for item in self.children:
                 item.disabled = True
-            
+
             embed = discord.Embed(title="🤝 Égalité!", description="Mise rendue!", color=discord.Color.orange())
             embed.add_field(
-                name="Ta main"
-                value=f"{self.format_hand(self.player_hand)}\n**Valeur: {player_value}**"
+                name="Ta main",
+                value=f"{self.format_hand(self.player_hand)}\n**Valeur: {player_value}**",
                 inline=True
             )
             embed.add_field(
-                name="Main du croupier"
-                value=f"{self.format_hand(self.dealer_hand)}\n**Valeur: {dealer_value}**"
+                name="Main du croupier",
+                value=f"{self.format_hand(self.dealer_hand)}\n**Valeur: {dealer_value}**",
                 inline=True
             )
             
@@ -189,7 +189,7 @@ class Blackjack(commands.Cog):
 
         # Déduire la mise
         profile['balance'] -= montant
-# Créer le deck
+        # Créer le deck
         cards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'] * 4
         random.shuffle(cards)
 
@@ -208,9 +208,9 @@ class Blackjack(commands.Cog):
             if dealer_value == 21:
                 # Égalité
                 profile['balance'] += montant
-embed = discord.Embed(
-                    title="🤝 Double Blackjack! Égalité!"
-                    description="Vous avez tous les deux 21!"
+                embed = discord.Embed(
+                    title="🤝 Double Blackjack! Égalité!",
+                    description="Vous avez tous les deux 21!",
                     color=discord.Color.orange()
                 )
             else:
@@ -224,20 +224,20 @@ embed = discord.Embed(
                 profile['total_wagered'] += montant
 
                 add_xp(interaction.user.id, interaction.guild.id, 50)
-embed = discord.Embed(
-                    title="♠️ BLACKJACK NATUREL! ♠️"
-                    description=f"21 dès la distribution! Bonus ×2.5!\n\n**Gain: +{profit:,} {CURRENCY_NAME}s**"
+                embed = discord.Embed(
+                    title="♠️ BLACKJACK NATUREL! ♠️",
+                    description=f"21 dès la distribution! Bonus ×2.5!\n\n**Gain: +{profit:,} {CURRENCY_NAME}s**",
                     color=discord.Color.gold()
                 )
 
             embed.add_field(
-                name="Ta main"
-                value=f"{view.format_hand(player_hand)}\n**Valeur: {player_value}**"
+                name="Ta main",
+                value=f"{view.format_hand(player_hand)}\n**Valeur: {player_value}**",
                 inline=True
             )
             embed.add_field(
-                name="Main du croupier"
-                value=f"{view.format_hand(dealer_hand)}\n**Valeur: {dealer_value}**"
+                name="Main du croupier",
+                value=f"{view.format_hand(dealer_hand)}\n**Valeur: {dealer_value}**",
                 inline=True
             )
 
@@ -247,13 +247,13 @@ embed = discord.Embed(
         # Jeu normal
         embed = discord.Embed(title="♠️ Blackjack", color=discord.Color.blue())
         embed.add_field(
-            name="Ta main"
-            value=f"{view.format_hand(player_hand)}\n**Valeur: {player_value}**"
+            name="Ta main",
+            value=f"{view.format_hand(player_hand)}\n**Valeur: {player_value}**",
             inline=True
         )
         embed.add_field(
-            name="Main du croupier"
-            value=f"{view.format_hand(dealer_hand, hide_first=True)}\n**Valeur: ?**"
+            name="Main du croupier",
+            value=f"{view.format_hand(dealer_hand, hide_first=True)}\n**Valeur: ?**",
             inline=True
         )
         embed.set_footer(text=f"Mise: {montant:,} {CURRENCY_NAME}s")

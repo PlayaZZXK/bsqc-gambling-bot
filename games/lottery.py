@@ -75,11 +75,11 @@ class Lottery(commands.Cog):
 
         if not lottery_data['draw_time']:
             lottery_data['draw_time'] = (datetime.now() + timedelta(hours=24)).isoformat()
-save_lottery_data()
+        save_lottery_data()
 
         embed = discord.Embed(
-            title="🎫 Ticket Acheté!"
-            description=f"Ton ticket pour la loterie a été acheté!\n\n**Jackpot actuel:** {lottery_data['pot']:,} {CURRENCY_NAME}s"
+            title="🎫 Ticket Acheté!",
+            description=f"Ton ticket pour la loterie a été acheté!\n\n**Jackpot actuel:** {lottery_data['pot']:,} {CURRENCY_NAME}s",
             color=discord.Color.green()
         )
         embed.add_field(name="Tickets totaux", value=str(len(lottery_data['tickets'])))
@@ -100,11 +100,11 @@ save_lottery_data()
         profile = get_user_profile(int(winner_id), interaction.guild.id)
         profile['balance'] += lottery_data['pot']
         profile['gambling_profit'] += (lottery_data['pot'] - self.ticket_price)
-save_lottery_data()
+        save_lottery_data()
 
         embed = discord.Embed(
-            title="🎉 GAGNANT DE LA LOTERIE!"
-            description=f"**{winner.mention}** a gagné **{lottery_data['pot']:,} {CURRENCY_NAME}s**!"
+            title="🎉 GAGNANT DE LA LOTERIE!",
+            description=f"**{winner.mention}** a gagné **{lottery_data['pot']:,} {CURRENCY_NAME}s**!",
             color=discord.Color.gold()
         )
         embed.add_field(name="Tickets participants", value=str(len(lottery_data['tickets'])))
@@ -134,8 +134,8 @@ save_lottery_data()
         save_lottery_data()
 
         embed = discord.Embed(
-            title="✅ Prix du ticket modifié!"
-            description=f"Le nouveau prix du ticket de loterie est: **{price:,} {CURRENCY_NAME}s**"
+            title="✅ Prix du ticket modifié!",
+            description=f"Le nouveau prix du ticket de loterie est: **{price:,} {CURRENCY_NAME}s**",
             color=discord.Color.green()
         )
 
@@ -155,8 +155,8 @@ save_lottery_data()
         save_lottery_data()
 
         embed = discord.Embed(
-            title="✅ Jackpot modifié!"
-            description=f"**Ancien jackpot:** {old_pot:,} {CURRENCY_NAME}s\n**Nouveau jackpot:** {montant:,} {CURRENCY_NAME}s"
+            title="✅ Jackpot modifié!",
+            description=f"**Ancien jackpot:** {old_pot:,} {CURRENCY_NAME}s\n**Nouveau jackpot:** {montant:,} {CURRENCY_NAME}s",
             color=discord.Color.gold()
         )
 
@@ -177,8 +177,8 @@ save_lottery_data()
         save_lottery_data()
 
         embed = discord.Embed(
-            title="🔄 Loterie réinitialisée!"
-            description=f"**Ancien jackpot:** {old_pot:,} {CURRENCY_NAME}s\n**Anciens tickets:** {old_tickets}\n\nLa loterie a été complètement réinitialisée!"
+            title="🔄 Loterie réinitialisée!",
+            description=f"**Ancien jackpot:** {old_pot:,} {CURRENCY_NAME}s\n**Anciens tickets:** {old_tickets}\n\nLa loterie a été complètement réinitialisée!",
             color=discord.Color.orange()
         )
 

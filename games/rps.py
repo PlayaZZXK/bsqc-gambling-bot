@@ -14,7 +14,7 @@ class RPS(commands.Cog):
 
     @app_commands.command(name='rps', description='Pierre, Papier, Ciseaux!')
     @app_commands.describe(
-        choix='Ton choix: rock/paper/scissors'
+        choix='Ton choix: rock/paper/scissors',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 3, key=lambda i: i.user.id)
@@ -33,8 +33,8 @@ class RPS(commands.Cog):
             return await interaction.response.send_message(f"❌ Pas assez de {CURRENCY_NAME}s!")
 
         choices_map = {
-            'rock': '✊', 'pierre': '✊', 'r': '✊'
-            'paper': '✋', 'papier': '✋', 'p': '✋'
+            'rock': '✊', 'pierre': '✊', 'r': '✊',
+            'paper': '✋', 'papier': '✋', 'p': '✋',
             'scissors': '✌️', 'ciseaux': '✌️', 's': '✌️'
         }
 
@@ -77,9 +77,9 @@ class RPS(commands.Cog):
         profile['games_played'] += 1
         profile['total_wagered'] += montant
         add_xp(interaction.user.id, interaction.guild.id, 15 if result == "win" else 5)
-embed = discord.Embed(
-            title=title
-            description=f"**Toi:** {player_choice}\n**Bot:** {bot_choice}"
+        embed = discord.Embed(
+            title=title,
+            description=f"**Toi:** {player_choice}\n**Bot:** {bot_choice}",
             color=color
         )
 

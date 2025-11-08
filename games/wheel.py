@@ -12,11 +12,11 @@ class Wheel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.segments = [
-            ("💀 SKULL", 50, 0.01)
-            ("💎 Diamant", 20, 0.05)
-            ("👑 Couronne", 10, 0.10)
-            ("⭐ Étoile", 5, 0.15)
-            ("🍒 Cerise", 2, 0.30)
+            ("💀 SKULL", 50, 0.01),
+            ("💎 Diamant", 20, 0.05),
+            ("👑 Couronne", 10, 0.10),
+            ("⭐ Étoile", 5, 0.15),
+            ("🍒 Cerise", 2, 0.30),
             ("💩 Lose", 0, 0.39)
         ]
 
@@ -56,9 +56,9 @@ class Wheel(commands.Cog):
         profile['games_played'] += 1
         profile['total_wagered'] += montant
         add_xp(interaction.user.id, interaction.guild.id, int(15 * multiplier) if won else 5)
-embed = discord.Embed(
-            title=f"🎡 {result[0]}!"
-            description=f"**Multiplicateur: ×{multiplier}**"
+        embed = discord.Embed(
+            title=f"🎡 {result[0]}!",
+            description=f"**Multiplicateur: ×{multiplier}**",
             color=discord.Color.gold() if multiplier > 10 else discord.Color.green() if won else discord.Color.red()
         )
         embed.add_field(name="Résultat", value=f"{'+' if profit >= 0 else ''}{profit:,} {CURRENCY_NAME}s")

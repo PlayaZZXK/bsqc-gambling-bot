@@ -16,7 +16,7 @@ class CoinflipPvP(commands.Cog):
 
     @app_commands.command(name='duel', description='Défier quelqu\'un en coinflip!')
     @app_commands.describe(
-        opponent='Le joueur à défier'
+        opponent='Le joueur à défier',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 30, key=lambda i: i.user.id)
@@ -50,8 +50,8 @@ class CoinflipPvP(commands.Cog):
         active_duels[opponent.id] = duel_id
 
         embed = discord.Embed(
-            title="⚔️ Défi Coinflip!"
-            description=f"{interaction.user.mention} défie {opponent.mention}!\n\n**Mise:** {montant:,} {CURRENCY_NAME}s\n\n{opponent.mention}, réagis avec ✅ pour accepter (30s)"
+            title="⚔️ Défi Coinflip!",
+            description=f"{interaction.user.mention} défie {opponent.mention}!\n\n**Mise:** {montant:,} {CURRENCY_NAME}s\n\n{opponent.mention}, réagis avec ✅ pour accepter (30s)",
             color=discord.Color.blue()
         )
 
@@ -74,10 +74,10 @@ class CoinflipPvP(commands.Cog):
             # Déduire les mises
             challenger_profile['balance'] -= montant
             opponent_profile['balance'] -= montant
-# Lancer la pièce
+            # Lancer la pièce
             embed = discord.Embed(
-                title="🪙 Coinflip Duel!"
-                description="La pièce est lancée...\n\n💫"
+                title="🪙 Coinflip Duel!",
+                description="La pièce est lancée...\n\n💫",
                 color=discord.Color.blue()
             )
             await msg.edit(embed=embed)
@@ -103,9 +103,9 @@ class CoinflipPvP(commands.Cog):
 
             add_xp(winner.id, interaction.guild.id, 30)
             add_xp(loser.id, interaction.guild.id, 10)
-embed = discord.Embed(
-                title="🏆 Victoire!"
-                description=f"**{winner.mention} a gagné le duel!**\n\n💰 Gains: {total_pot:,} {CURRENCY_NAME}s\n💔 {loser.mention} perd {montant:,} {CURRENCY_NAME}s"
+            embed = discord.Embed(
+                title="🏆 Victoire!",
+                description=f"**{winner.mention} a gagné le duel!**\n\n💰 Gains: {total_pot:,} {CURRENCY_NAME}s\n💔 {loser.mention} perd {montant:,} {CURRENCY_NAME}s",
                 color=discord.Color.gold()
             )
 

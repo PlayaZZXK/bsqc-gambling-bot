@@ -17,7 +17,7 @@ class Roulette(commands.Cog):
 
     @app_commands.command(name='roulette', description='Jouer à la roulette!')
     @app_commands.describe(
-        bet_type='Type de pari: red/black/odd/even/green/0-36'
+        bet_type='Type de pari: red/black/odd/even/green/0-36',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 4, key=lambda i: i.user.id)
@@ -46,8 +46,8 @@ class Roulette(commands.Cog):
 
         # Animation
         embed = discord.Embed(
-            title="🎡 Roulette"
-            description="La roue tourne...\n\n🔴 ⚫ 🟢"
+            title="🎡 Roulette",
+            description="La roue tourne...\n\n🔴 ⚫ 🟢",
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
@@ -113,10 +113,10 @@ class Roulette(commands.Cog):
 
         xp_gain = int(30 * multiplier) if won else 5
         leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
-# Résultat
+        # Résultat
         embed = discord.Embed(
-            title=title
-            description=f"**Résultat:** {color_result} **{number}**\n**Tu as parié:** {bet_type.upper()}"
+            title=title,
+            description=f"**Résultat:** {color_result} **{number}**\n**Tu as parié:** {bet_type.upper()}",
             color=result_color
         )
 

@@ -14,7 +14,7 @@ class HigherLower(commands.Cog):
 
     @app_commands.command(name='higherlower', description='Higher or Lower! Carte plus haute ou plus basse?')
     @app_commands.describe(
-        choix='Ton choix: higher/lower'
+        choix='Ton choix: higher/lower',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
@@ -39,8 +39,8 @@ class HigherLower(commands.Cog):
         second_card = random.choice(cards)
 
         embed = discord.Embed(
-            title="🎴 Higher or Lower"
-            description=f"**Première carte:** {first_card}\n\nTu as parié: **{choix.upper()}**"
+            title="🎴 Higher or Lower",
+            description=f"**Première carte:** {first_card}\n\nTu as parié: **{choix.upper()}**",
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
@@ -72,9 +72,9 @@ class HigherLower(commands.Cog):
         profile['games_played'] += 1
         profile['total_wagered'] += montant
         add_xp(interaction.user.id, interaction.guild.id, 15 if won else 5)
-embed = discord.Embed(
-            title="🎉 Gagné!" if won else "💔 Perdu!"
-            description=f"**Première carte:** {first_card} ({first_val})\n**Deuxième carte:** {second_card} ({second_val})"
+        embed = discord.Embed(
+            title="🎉 Gagné!" if won else "💔 Perdu!",
+            description=f"**Première carte:** {first_card} ({first_val})\n**Deuxième carte:** {second_card} ({second_val})",
             color=discord.Color.green() if won else discord.Color.red()
         )
         embed.add_field(name="Résultat", value=f"{'+' if won else '-'}{montant if not won else profit:,} {CURRENCY_NAME}s")

@@ -14,7 +14,7 @@ class Coinflip(commands.Cog):
 
     @app_commands.command(name='coinflip', description='Jouer au coinflip!')
     @app_commands.describe(
-        choix='Ton choix: heads/tails (face/pile)'
+        choix='Ton choix: heads/tails (face/pile)',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 3, key=lambda i: i.user.id)

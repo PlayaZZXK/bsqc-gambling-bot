@@ -14,7 +14,7 @@ class Dice(commands.Cog):
 
     @app_commands.command(name='dice', description='Jouer aux dés!')
     @app_commands.describe(
-        prediction='Ta prédiction: over/under/exact'
+        prediction='Ta prédiction: over/under/exact',
         montant='Le montant à miser'
     )
     @app_commands.checks.cooldown(1, 3, key=lambda i: i.user.id)
@@ -58,8 +58,8 @@ class Dice(commands.Cog):
 
         # Animation
         embed = discord.Embed(
-            title="🎲 Lancement des dés..."
-            description=f"{interaction.user.mention} lance 2 dés!\n\n🎲 🎲"
+            title="🎲 Lancement des dés...",
+            description=f"{interaction.user.mention} lance 2 dés!\n\n🎲 🎲",
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
@@ -103,13 +103,13 @@ class Dice(commands.Cog):
         # XP
         xp_gain = 20 if won else 5
         leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
-# Emoji pour les dés
+        # Emoji pour les dés
         dice_emoji = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
 
         # Résultat
         embed = discord.Embed(
-            title=title
-            description=f"**Dés:** {dice_emoji[dice1]} {dice_emoji[dice2]}\n**Total:** {total}\n**Tu as parié:** {prediction.upper()} 7"
+            title=title,
+            description=f"**Dés:** {dice_emoji[dice1]} {dice_emoji[dice2]}\n**Total:** {total}\n**Tu as parié:** {prediction.upper()} 7",
             color=color
         )
 

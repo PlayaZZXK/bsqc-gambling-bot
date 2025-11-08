@@ -47,8 +47,8 @@ class MinesView(discord.ui.View):
                 self.children[pos].disabled = True
 
                 embed = discord.Embed(
-                    title="💎 Mines"
-                    description=f"**Cases révélées:** {len(self.revealed)}\n**Multiplicateur:** {multiplier:.2f}x\n**Gain potentiel:** {int(self.amount * multiplier):,} {CURRENCY_NAME}s"
+                    title="💎 Mines",
+                    description=f"**Cases révélées:** {len(self.revealed)}\n**Multiplicateur:** {multiplier:.2f}x\n**Gain potentiel:** {int(self.amount * multiplier):,} {CURRENCY_NAME}s",
                     color=discord.Color.green()
                 )
                 await interaction.response.edit_message(embed=embed, view=self)
@@ -67,7 +67,7 @@ class MinesView(discord.ui.View):
         self.profile['gambling_profit'] -= self.amount
         self.profile['games_lost'] += 1
         self.profile['games_played'] += 1
-embed = discord.Embed(title="💥 BOOM!", description=f"Perte: -{self.amount:,} {CURRENCY_NAME}s", color=discord.Color.red())
+        embed = discord.Embed(title="💥 BOOM!", description=f"Perte: -{self.amount:,} {CURRENCY_NAME}s", color=discord.Color.red())
         await interaction.response.edit_message(embed=embed, view=self)
         self.stop()
 
@@ -85,7 +85,7 @@ embed = discord.Embed(title="💥 BOOM!", description=f"Perte: -{self.amount:,} 
         self.profile['games_won'] += 1
         self.profile['games_played'] += 1
         add_xp(self.interaction.user.id, self.interaction.guild.id, 20)
-for item in self.children:
+        for item in self.children:
             item.disabled = True
 
         embed = discord.Embed(title="💰 Cash Out!", description=f"Gain: +{profit:,} {CURRENCY_NAME}s", color=discord.Color.gold())
@@ -98,7 +98,7 @@ class Mines(commands.Cog):
 
     @app_commands.command(name='mines', description='Jeu Mines! Évite les bombes!')
     @app_commands.describe(
-        montant='Le montant à miser'
+        montant='Le montant à miser',
         num_mines='Nombre de mines (1-20, défaut: 5)'
     )
     @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
@@ -114,7 +114,7 @@ class Mines(commands.Cog):
 
         profile['balance'] -= montant
         profile['total_wagered'] += montant
-view = MinesView(interaction, montant, profile, num_mines)
+        view = MinesView(interaction, montant, profile, num_mines)
         embed = discord.Embed(title="💣 Mines", description=f"Évite les {num_mines} bombes!", color=discord.Color.blue())
         await interaction.response.send_message(embed=embed, view=view)
 

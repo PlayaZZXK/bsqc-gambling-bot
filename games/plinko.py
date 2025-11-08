@@ -45,11 +45,11 @@ class Plinko(commands.Cog):
         profile['games_played'] += 1
         profile['total_wagered'] += montant
         add_xp(interaction.user.id, interaction.guild.id, 15)
-slots_display = "".join([f"[**×{m}**]" if i == slot else f"[×{m}]" for i, m in enumerate(self.multipliers)])
+        slots_display = "".join([f"[**×{m}**]" if i == slot else f"[×{m}]" for i, m in enumerate(self.multipliers)])
 
         embed = discord.Embed(
-            title="🎯 Plinko - Résultat!"
-            description=f"{slots_display}\n\n**Multiplicateur: ×{multiplier}**"
+            title="🎯 Plinko - Résultat!",
+            description=f"{slots_display}\n\n**Multiplicateur: ×{multiplier}**",
             color=discord.Color.green() if won else discord.Color.red()
         )
         embed.add_field(name="Gain/Perte", value=f"{'+' if profit >= 0 else ''}{profit:,} {CURRENCY_NAME}s")

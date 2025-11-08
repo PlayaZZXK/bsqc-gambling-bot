@@ -38,9 +38,9 @@ class CrashView(discord.ui.View):
         self.profile['total_wagered'] += self.amount
 
         add_xp(self.interaction.user.id, self.interaction.guild.id, int(20 * self.multiplier))
-embed = discord.Embed(
-            title="💰 Cash Out Réussi!"
-            description=f"**Multiplicateur:** {self.multiplier:.2f}x\n**Gain:** +{profit:,} {CURRENCY_NAME}s"
+        embed = discord.Embed(
+            title="💰 Cash Out Réussi!",
+            description=f"**Multiplicateur:** {self.multiplier:.2f}x\n**Gain:** +{profit:,} {CURRENCY_NAME}s",
             color=discord.Color.green()
         )
         embed.add_field(name="Nouveau solde", value=f"{self.profile['balance']:,} {CURRENCY_NAME}s")
@@ -74,7 +74,7 @@ class Crash(commands.Cog):
             return
 
         profile['balance'] -= montant
-view = CrashView(interaction, montant, profile)
+        view = CrashView(interaction, montant, profile)
 
         # Point de crash aléatoire
         crash_point = random.uniform(1.01, 10.0)
@@ -105,9 +105,9 @@ view = CrashView(interaction, montant, profile)
             profile['games_lost'] += 1
             profile['games_played'] += 1
             profile['total_wagered'] += montant
-embed = discord.Embed(
-                title="💥 CRASH!"
-                description=f"**Crash à:** {crash_point:.2f}x\n**Perte:** -{montant:,} {CURRENCY_NAME}s"
+            embed = discord.Embed(
+                title="💥 CRASH!",
+                description=f"**Crash à:** {crash_point:.2f}x\n**Perte:** -{montant:,} {CURRENCY_NAME}s",
                 color=discord.Color.red()
             )
             await message.edit(embed=embed, view=view)
