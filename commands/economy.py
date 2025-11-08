@@ -191,6 +191,48 @@ class Economy(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name='removeadmin', description='Retirer des Skulls à quelqu\'un (Admin seulement)')
+    @app_commands.describe(
+        member='Le membre à qui retirer',
+        montant='Le montant à retirer'
+    )
+    @has_admin_role()
+    async def remove_admin(self, interaction: discord.Interaction, member: discord.Member, montant: int):
+        """Retirer des Skulls à quelqu'un sans restrictions (Admin seulement)"""
+        if member.bot:
+            await interaction.response.send_message("❌ Tu ne peux pas retirer des Skulls à un bot!", ephemeral=True)
+            return
+
+        if montant <= 0:
+            await interaction.response.send_message("❌ Le montant doit être positif!", ephemeral=True)
+            return
+
+        target_profile = get_user_profile(member.id, interaction.guild.id)
+
+        # Vérifier que le membre a assez de Skulls
+        if target_profile['balance'] < montant:
+            await interaction.response.send_message(
+                f"❌ {member.display_name} n'a que {target_profile['balance']:,} {CURRENCY_NAME}s! "
+                f"(Tu veux retirer {montant:,})",
+                ephemeral=True
+            )
+            return
+
+        # Retirer l'argent directement
+        new_balance = db.modify_balance(member.id, interaction.guild.id, -montant, f"admin removal by {interaction.user.id}")
+
+        # Note: On ne touche pas au total_earned car c'est un retrait admin
+
+        embed = discord.Embed(
+            title=f"{CURRENCY_EMOJI} Admin Removal!",
+            description=f"{interaction.user.mention} a retiré **{montant:,} {CURRENCY_NAME}s** à {member.mention}!",
+            color=discord.Color.red()
+        )
+        embed.add_field(name="Nouveau solde", value=f"{new_balance:,} {CURRENCY_NAME}s", inline=False)
+        embed.set_footer(text="👑 Commande Admin")
+
+        await interaction.response.send_message(embed=embed)
+
     @app_commands.command(name='work', description='Travailler pour gagner de l\'argent')
     @app_commands.checks.cooldown(1, 3600, key=lambda i: i.user.id)  # 1 fois par heure
     async def work(self, interaction: discord.Interaction):
