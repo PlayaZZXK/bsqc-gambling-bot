@@ -6,12 +6,40 @@ sys.path.append('..')
 from bot import OWNER_ID
 from database import db
 
+# Rôles autorisés à exécuter les commandes admin
+ADMIN_ROLE_IDS = [
+    1333483851053535293,
+    1333483900537671710,
+    1333483947023138826,
+    1333483976119287809,
+    1345775821893402818
+]
+
+def has_admin_role():
+    """Vérifier si l'utilisateur a un des rôles admin autorisés"""
+    async def predicate(interaction: discord.Interaction) -> bool:
+        # Le owner peut toujours utiliser les commandes
+        if interaction.user.id == OWNER_ID:
+            return True
+
+        # Vérifier si l'utilisateur a un des rôles autorisés
+        if interaction.guild and hasattr(interaction.user, 'roles'):
+            user_role_ids = [role.id for role in interaction.user.roles]
+            if any(role_id in ADMIN_ROLE_IDS for role_id in user_role_ids):
+                return True
+
+        # Si aucun rôle autorisé, refuser
+        await interaction.response.send_message("❌ Tu n'as pas la permission d'utiliser cette commande!", ephemeral=True)
+        return False
+
+    return app_commands.check(predicate)
+
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @app_commands.command(name='forcesave', description='Créer un backup de la base de données (Admin)')
-    @app_commands.checks.has_permissions(administrator=True)
+    @has_admin_role()
     async def forcesave(self, interaction: discord.Interaction):
         """Créer un backup immédiat de la base de données SQLite"""
 
@@ -40,7 +68,7 @@ class Admin(commands.Cog):
             await interaction.followup.send(embed=embed)
 
     @app_commands.command(name='botstats', description='Statistiques du bot (Admin)')
-    @app_commands.checks.has_permissions(administrator=True)
+    @has_admin_role()
     async def botstats_cmd(self, interaction: discord.Interaction):
         """Afficher les statistiques du bot depuis la base de données"""
 

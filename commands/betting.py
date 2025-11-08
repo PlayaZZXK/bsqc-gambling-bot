@@ -5,8 +5,30 @@ from datetime import datetime
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp
+from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, OWNER_ID
 from database import db
+
+# Rôles autorisés à exécuter les commandes admin
+ADMIN_ROLE_IDS = [
+    1333483851053535293,
+    1333483900537671710,
+    1333483947023138826,
+    1333483976119287809,
+    1345775821893402818
+]
+
+def has_admin_role():
+    """Vérifier si l'utilisateur a un des rôles admin autorisés"""
+    async def predicate(interaction: discord.Interaction) -> bool:
+        if interaction.user.id == OWNER_ID:
+            return True
+        if interaction.guild and hasattr(interaction.user, 'roles'):
+            user_role_ids = [role.id for role in interaction.user.roles]
+            if any(role_id in ADMIN_ROLE_IDS for role_id in user_role_ids):
+                return True
+        await interaction.response.send_message("❌ Tu n'as pas la permission d'utiliser cette commande!", ephemeral=True)
+        return False
+    return app_commands.check(predicate)
 
 # Stockage des paris actifs
 active_bets = {}
@@ -16,7 +38,7 @@ class Betting(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name='createbet', description='Créer un nouveau pari communautaire (Admin seulement)')
-    @app_commands.checks.has_permissions(administrator=True)
+    @has_admin_role()
     async def create_bet(self, interaction: discord.Interaction):
         """Créer un nouveau pari communautaire (Admin seulement) 📋"""
 
@@ -153,7 +175,7 @@ class Betting(commands.Cog):
         bet_id='L\'ID du pari à fermer',
         winning_option='Le numéro de l\'option gagnante'
     )
-    @app_commands.checks.has_permissions(administrator=True)
+    @has_admin_role()
     async def close_bet(self, interaction: discord.Interaction, bet_id: str, winning_option: int):
         """Fermer un pari et distribuer les gains (Admin seulement) 🏆"""
 
