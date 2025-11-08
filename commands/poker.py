@@ -583,8 +583,15 @@ class Poker(commands.Cog):
         # Enregistrer la partie
         self.active_games[interaction.channel_id] = game
 
-        # Attendre puis commencer
-        await asyncio.sleep(wait_time)
+        # Attendre puis commencer (ou jusqu'à ce que la table soit pleine)
+        elapsed = 0
+        while elapsed < wait_time:
+            await asyncio.sleep(1)
+            elapsed += 1
+
+            # Démarrer si la table est pleine
+            if len(game.players) >= max_players:
+                break
 
         # Vérifier qu'on a assez de joueurs
         if len(game.players) < min_players:
@@ -714,25 +721,64 @@ class Poker(commands.Cog):
         pot_share = game.pot // len(winners)
 
         embed = discord.Embed(
-            title="🏆 Résultats",
-            description=f"**Pot:** {game.pot:,} {CURRENCY_NAME}s",
+            title="🏆 Résultats du Poker",
+            description=f"**Pot total:** {game.pot:,} {CURRENCY_NAME}s",
             color=discord.Color.gold()
         )
 
-        # Afficher les cartes
-        cards_str = " ".join([str(card) for card in game.community_cards])
-        embed.add_field(name="Cartes finales", value=cards_str, inline=False)
+        # Afficher les cartes communes
+        if game.community_cards:
+            cards_str = " ".join([str(card) for card in game.community_cards])
+            embed.add_field(name="🎴 Cartes communes", value=cards_str, inline=False)
+
+        # Afficher les mains de tous les joueurs qui n'ont pas fold
+        players_in = game.get_players_in_hand()
+        if len(players_in) > 1:
+            hands_text = []
+            for player in players_in:
+                hand_str = " ".join([str(card) for card in player.hand])
+                rank, values = game.evaluate_hand(player)
+                rank_name = rank.name.replace('_', ' ').title()
+                hands_text.append(f"{player.user.mention}: {hand_str} - {rank_name}")
+
+            embed.add_field(name="👥 Mains des joueurs", value="\n".join(hands_text), inline=False)
 
         # Afficher les gagnants
         winners_text = []
         for winner, rank, values in winners:
-            # Redonner les chips au joueur
+            # Redonner les chips au joueur (balance Skulls)
             db.modify_balance(winner.user.id, game.guild_id, pot_share, "poker win")
 
-            rank_name = rank.name.replace('_', ' ').title() if rank else "Tout le monde a fold"
-            winners_text.append(f"{winner.user.mention}: {rank_name} - **+{pot_share:,} {CURRENCY_NAME}s**")
+            # Mettre à jour les stats
+            profile = get_user_profile(winner.user.id, game.guild_id)
+            db.update_user_profile(
+                winner.user.id,
+                game.guild_id,
+                games_played=profile['games_played'] + 1,
+                games_won=profile['games_won'] + 1
+            )
 
-        embed.add_field(name="Gagnant(s)", value="\n".join(winners_text), inline=False)
+            # XP
+            add_xp(winner.user.id, game.guild_id, 50)
+
+            rank_name = rank.name.replace('_', ' ').title() if rank else "Tout le monde a fold"
+            hand_str = " ".join([str(card) for card in winner.hand])
+            winners_text.append(f"🏆 {winner.user.mention}\n**Main:** {hand_str}\n**Rang:** {rank_name}\n**Gain:** +{pot_share:,} {CURRENCY_NAME}s")
+
+        # Mettre à jour les stats des perdants aussi
+        for player in game.players:
+            if not any(w[0].user.id == player.user.id for w in winners):
+                profile = get_user_profile(player.user.id, game.guild_id)
+                db.update_user_profile(
+                    player.user.id,
+                    game.guild_id,
+                    games_played=profile['games_played'] + 1,
+                    games_lost=profile['games_lost'] + 1
+                )
+                # XP pour participation
+                add_xp(player.user.id, game.guild_id, 10)
+
+        embed.add_field(name="🎉 Gagnant(s)", value="\n\n".join(winners_text), inline=False)
 
         await channel.send(embed=embed)
 
