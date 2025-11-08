@@ -301,21 +301,20 @@ async def load_extensions():
         'commands.help_command',
         'commands.admin',  # Commandes admin
         'commands.poker',  # Texas Hold'em multijoueur
-        'games.slots',  # Migré vers SQLite
-        # Les autres jeux seront activés après migration
-        # 'games.coinflip',
-        # 'games.dice',
-        # 'games.blackjack',
-        # 'games.roulette',
-        # 'games.crash',
-        # 'games.mines',
-        # 'games.plinko',
-        # 'games.wheel',
-        # 'games.cups',
-        # 'games.higherlower',
-        # 'games.rps',
-        # 'games.lottery',
-        # 'games.coinflip_pvp'
+        'games.slots',
+        'games.coinflip',
+        'games.dice',
+        'games.blackjack',
+        'games.roulette',
+        'games.crash',
+        'games.mines',
+        'games.plinko',
+        'games.wheel',
+        'games.cups',
+        'games.higherlower',
+        'games.rps',
+        'games.lottery',
+        'games.coinflip_pvp'
     ]
 
     for cog in cogs:
