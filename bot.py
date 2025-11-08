@@ -300,6 +300,7 @@ async def load_extensions():
         'commands.stats',
         'commands.help_command',
         'commands.admin',  # Commandes admin
+        'commands.poker',  # Texas Hold'em multijoueur
         'games.slots',  # Migré vers SQLite
         # Les autres jeux seront activés après migration
         # 'games.coinflip',
