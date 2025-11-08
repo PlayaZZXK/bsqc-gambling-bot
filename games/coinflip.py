@@ -54,8 +54,8 @@ class Coinflip(commands.Cog):
         # Animation
         coin_animation = ["🪙", "💫", "✨", "🌟"]
         embed = discord.Embed(
-            title="🪙 Coinflip!"
-            description=f"{interaction.user.mention} lance la pièce...\n\n{''.join(random.choices(coin_animation, k=5))}"
+            title="🪙 Coinflip!",
+            description=f"{interaction.user.mention} lance la pièce...\n\n{''.join(random.choices(coin_animation, k=5))}",
             color=discord.Color.blue()
         )
         await interaction.response.send_message(embed=embed)
@@ -89,13 +89,13 @@ class Coinflip(commands.Cog):
         # XP
         xp_gain = 15 if won else 5
         leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
-# Embed résultat
+        # Embed résultat
         result_display = "Face 😊" if result == 'heads' else "Pile 🔄"
         choice_display = "Face 😊" if choix == 'heads' else "Pile 🔄"
 
         embed = discord.Embed(
-            title=title
-            description=f"**Tu as choisi:** {choice_display}\n**Résultat:** {result_display}"
+            title=title,
+            description=f"**Tu as choisi:** {choice_display}\n**Résultat:** {result_display}",
             color=color
         )
 
