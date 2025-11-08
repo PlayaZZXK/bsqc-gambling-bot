@@ -89,7 +89,8 @@ class Help(commands.Cog):
                 ("`/wheel <montant>`", "Roue de la fortune (×50 max)"),
                 ("`/cups <choix> <montant>`", "Jeu des gobelets (×2)"),
                 ("", ""),
-                ("**PvP & Autres**", ""),
+                ("**PvP & Multijoueur**", ""),
+                ("`/playpoker <buyin> [options]`", "Texas Hold'em (2-8 joueurs, tables privées)"),
                 ("`/higherlower <choix> <montant>`", "Carte plus haute/basse (×2)"),
                 ("`/rps <choix> <montant>`", "Pierre-Papier-Ciseaux (×2)"),
                 ("`/duel <@user> <montant>`", "Défi coinflip PvP"),
@@ -173,11 +174,11 @@ class Help(commands.Cog):
 
         embed = discord.Embed(
             title=f"{CURRENCY_EMOJI} SKULL CASINO",
-            description="Bot de gambling complet avec 14 jeux!",
+            description="Bot de gambling complet avec 15 jeux!",
             color=discord.Color.purple()
         )
 
-        embed.add_field(name="🎰 Jeux", value="14 jeux différents", inline=True)
+        embed.add_field(name="🎰 Jeux", value="15 jeux différents", inline=True)
         embed.add_field(name="👥 Utilisateurs", value=f"{total_users}", inline=True)
         embed.add_field(name="🏰 Serveurs", value=f"{total_guilds}", inline=True)
 
@@ -187,7 +188,8 @@ class Help(commands.Cog):
 
         embed.add_field(
             name="🎮 Fonctionnalités",
-            value="• 14 jeux de gambling\n"
+            value="• 15 jeux de gambling\n"
+                  "• Texas Hold'em multijoueur\n"
                   "• Système d'économie complet\n"
                   "• Paris communautaires\n"
                   "• Statistiques détaillées\n"
