@@ -6,9 +6,11 @@ import os
 class Database:
     def __init__(self, db_path=None):
         """Initialise la base de données SQLite"""
-        # Utiliser /data si disponible (Render persistent disk), sinon ./data
+        # Utiliser /app/data si disponible (Railway persistent disk), sinon ./data
         if db_path is None:
-            if os.path.exists('/data'):
+            if os.path.exists('/app/data'):
+                db_path = '/app/data/economy.db'
+            elif os.path.exists('/data'):
                 db_path = '/data/economy.db'
             else:
                 db_path = 'data/economy.db'
@@ -206,7 +208,14 @@ class Database:
     def backup_database(self):
         """Crée un backup de la base de données"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = f'data/backup_{timestamp}.db'
+
+        # Utiliser le même dossier que la database
+        if '/app/data' in self.db_path:
+            backup_path = f'/app/data/backup_{timestamp}.db'
+        elif '/data' in self.db_path:
+            backup_path = f'/data/backup_{timestamp}.db'
+        else:
+            backup_path = f'data/backup_{timestamp}.db'
 
         # Copier la base de données
         import shutil
