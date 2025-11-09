@@ -321,7 +321,7 @@ class LobbyView(discord.ui.View):
 
 class BettingView(discord.ui.View):
     def __init__(self, game: PokerGame, player: PokerPlayer, cog):
-        super().__init__(timeout=60)
+        super().__init__(timeout=25)  # Timer de 25 secondes
         self.game = game
         self.player = player
         self.cog = cog
@@ -451,6 +451,7 @@ class BettingView(discord.ui.View):
         """Auto-fold si timeout"""
         if not self.action_taken:
             self.player.is_folded = True
+            # Le message sera envoyé par le système de jeu
 
 def create_lobby_embed(game: PokerGame) -> discord.Embed:
     """Créer l'embed du lobby"""
@@ -685,10 +686,14 @@ class Poker(commands.Cog):
 
                 # Créer les boutons d'action
                 view = BettingView(game, player, self)
-                msg = await channel.send(f"{player.user.mention}, c'est ton tour!", embed=embed, view=view)
+                msg = await channel.send(f"{player.user.mention}, c'est ton tour! (25 secondes)", embed=embed, view=view)
 
-                # Attendre l'action du joueur (timeout 60s)
+                # Attendre l'action du joueur (timeout 25s)
                 await view.wait()
+
+                # Vérifier si le joueur a timeout (auto-fold)
+                if not view.action_taken and player.is_folded:
+                    await channel.send(f"⏱️ {player.user.mention} n'a pas joué à temps et a été fold automatiquement!")
 
                 # Supprimer le message
                 try:
