@@ -1,9 +1,10 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import sys
+import random
 sys.path.append('..')
 from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, OWNER_ID
 from database import db
@@ -15,6 +16,15 @@ ADMIN_ROLE_IDS = [
     1333483947023138826,
     1333483976119287809,
     1345775821893402818
+]
+
+# Liste des équipes de la NHL
+NHL_TEAMS = [
+    "Ducks", "Coyotes", "Bruins", "Sabres", "Flames", "Hurricanes", "Blackhawks",
+    "Avalanche", "Blue Jackets", "Stars", "Red Wings", "Oilers", "Panthers",
+    "Kings", "Wild", "Canadiens", "Predators", "Devils", "Islanders", "Rangers",
+    "Senators", "Flyers", "Penguins", "Sharks", "Kraken", "Blues", "Lightning",
+    "Maple Leafs", "Canucks", "Golden Knights", "Capitals"
 ]
 
 def has_admin_role():
@@ -33,9 +43,217 @@ def has_admin_role():
 # Stockage des paris actifs
 active_bets = {}
 
+# Stockage de la configuration NHL auto-bet par serveur
+nhl_auto_bet_config = {}
+
 class Betting(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.nhl_auto_bet_task = None
+
+    async def cog_load(self):
+        """Démarrer la tâche automatique NHL au chargement du cog"""
+        if self.nhl_auto_bet_task is None:
+            self.nhl_auto_bet_task = self.bot.loop.create_task(self.nhl_auto_bet_loop())
+            print("[NHL AUTO-BET] Système automatique NHL démarré!")
+
+    async def cog_unload(self):
+        """Arrêter la tâche automatique NHL au déchargement du cog"""
+        if self.nhl_auto_bet_task:
+            self.nhl_auto_bet_task.cancel()
+            print("[NHL AUTO-BET] Système automatique NHL arrêté!")
+
+    async def nhl_auto_bet_loop(self):
+        """Boucle qui crée automatiquement des paris NHL toutes les 24 heures"""
+        await self.bot.wait_until_ready()
+
+        while not self.bot.is_closed():
+            try:
+                # Créer des paris NHL pour chaque serveur configuré
+                for guild_id, config in nhl_auto_bet_config.items():
+                    if config.get('enabled', False):
+                        await self.create_nhl_auto_bet(guild_id, config)
+
+                # Attendre 24 heures avant le prochain pari
+                await asyncio.sleep(86400)  # 24 heures = 86400 secondes
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"[NHL AUTO-BET ERROR] {e}")
+                await asyncio.sleep(3600)  # Attendre 1 heure en cas d'erreur
+
+    async def create_nhl_auto_bet(self, guild_id, config):
+        """Créer un pari NHL automatique pour un serveur"""
+        try:
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                return
+
+            channel_id = config.get('channel_id')
+            channel = guild.get_channel(channel_id)
+            if not channel:
+                return
+
+            # Sélectionner 2 équipes différentes au hasard
+            team1, team2 = random.sample(NHL_TEAMS, 2)
+
+            # Générer des cotes aléatoires (entre 1.5 et 3.0)
+            odds1 = round(random.uniform(1.5, 3.0), 2)
+            odds2 = round(random.uniform(1.5, 3.0), 2)
+
+            # Créer le pari avec durée de 15 heures
+            bet_id = f"{guild_id}_nhl_{datetime.now().timestamp()}"
+            close_time = datetime.now() + timedelta(hours=15)
+
+            active_bets[bet_id] = {
+                "title": "Qui va gagner le match?",
+                "options": [
+                    {"name": team1, "odds": odds1, "bets": {}},
+                    {"name": team2, "odds": odds2, "bets": {}}
+                ],
+                "creator": self.bot.user.id,
+                "guild": guild_id,
+                "channel": channel_id,
+                "active": True,
+                "created_at": datetime.now().isoformat(),
+                "close_time": close_time.isoformat(),
+                "auto_nhl": True
+            }
+
+            # Créer l'embed du pari
+            embed = discord.Embed(
+                title="🏒 Qui va gagner le match?",
+                description=f"**{team1}** vs **{team2}**\n\nID du pari: `{bet_id}`\nFermeture automatique: <t:{int(close_time.timestamp())}:R>",
+                color=discord.Color.blue()
+            )
+
+            embed.add_field(
+                name=f"🔵 {team1}",
+                value=f"**Côte:** {odds1}x\n**Parier:** `/placebet {bet_id} 1 <montant>`",
+                inline=True
+            )
+
+            embed.add_field(
+                name=f"🔴 {team2}",
+                value=f"**Côte:** {odds2}x\n**Parier:** `/placebet {bet_id} 2 <montant>`",
+                inline=True
+            )
+
+            embed.set_footer(text="🏒 Pari NHL automatique • Fermeture dans 15 heures")
+
+            await channel.send(embed=embed)
+
+            # Programmer la fermeture automatique après 15 heures
+            self.bot.loop.create_task(self.auto_close_nhl_bet(bet_id, 15 * 3600))
+
+            print(f"[NHL AUTO-BET] Pari créé: {team1} vs {team2} dans {guild.name}")
+
+        except Exception as e:
+            print(f"[NHL AUTO-BET ERROR] Erreur création pari: {e}")
+
+    async def auto_close_nhl_bet(self, bet_id, delay):
+        """Fermer automatiquement un pari NHL après un délai"""
+        await asyncio.sleep(delay)
+
+        if bet_id not in active_bets:
+            return
+
+        bet = active_bets[bet_id]
+        if not bet.get('active', False):
+            return
+
+        # Choisir un gagnant basé sur les cotes (pondéré)
+        # Plus la cote est basse, plus l'équipe a de chances de gagner
+        odds1 = bet['options'][0]['odds']
+        odds2 = bet['options'][1]['odds']
+
+        # Convertir les cotes en probabilités
+        # Probabilité inverse des cotes (cote plus basse = plus probable)
+        prob1 = 1 / odds1
+        prob2 = 1 / odds2
+        total_prob = prob1 + prob2
+
+        # Normaliser les probabilités pour qu'elles totalisent 100%
+        prob1_normalized = prob1 / total_prob
+
+        # Tirer au sort avec les probabilités pondérées
+        winning_option = 1 if random.random() < prob1_normalized else 2
+
+        # Fermer le pari
+        bet['active'] = False
+        winning_opt = bet['options'][winning_option - 1]
+
+        guild = self.bot.get_guild(bet['guild'])
+        if not guild:
+            return
+
+        channel = guild.get_channel(bet['channel'])
+        if not channel:
+            return
+
+        # Distribuer les gains
+        winners = []
+        total_distributed = 0
+
+        for user_id, bet_amount in winning_opt['bets'].items():
+            profile = get_user_profile(int(user_id), guild.id)
+            winnings = int(bet_amount * winning_opt['odds'])
+
+            # Mise à jour DB
+            db.modify_balance(int(user_id), guild.id, winnings, "nhl bet won")
+            db.update_user_profile(
+                int(user_id),
+                guild.id,
+                gambling_profit=profile['gambling_profit'] + (winnings - bet_amount),
+                games_won=profile['games_won'] + 1,
+                games_played=profile['games_played'] + 1
+            )
+
+            add_xp(int(user_id), guild.id, 30)
+
+            winners.append((user_id, bet_amount, winnings))
+            total_distributed += winnings
+
+        # Mettre à jour les perdants
+        for i, option in enumerate(bet['options']):
+            if i != winning_option - 1:
+                for user_id, bet_amount in option['bets'].items():
+                    profile = get_user_profile(int(user_id), guild.id)
+                    db.update_user_profile(
+                        int(user_id),
+                        guild.id,
+                        gambling_profit=profile['gambling_profit'] - bet_amount,
+                        games_lost=profile['games_lost'] + 1,
+                        games_played=profile['games_played'] + 1
+                    )
+
+        # Annonce des résultats
+        team1 = bet['options'][0]['name']
+        team2 = bet['options'][1]['name']
+        winner_team = winning_opt['name']
+
+        embed = discord.Embed(
+            title="🏒 Résultats du match NHL",
+            description=f"**{team1}** vs **{team2}**\n\n🏆 **Gagnant:** {winner_team} ({winning_opt['odds']}x)",
+            color=discord.Color.gold()
+        )
+
+        if winners:
+            winners_text = ""
+            for user_id, bet_amount, winnings in winners[:10]:  # Max 10 gagnants affichés
+                user = self.bot.get_user(int(user_id))
+                username = user.display_name if user else f"User {user_id}"
+                profit = winnings - bet_amount
+                winners_text += f"**{username}:** Misé {bet_amount:,} → Gagné {winnings:,} (+{profit:,})\n"
+
+            embed.add_field(name=f"🎉 Gagnants ({len(winners)})", value=winners_text, inline=False)
+            embed.add_field(name="Total distribué", value=f"{total_distributed:,} {CURRENCY_NAME}s", inline=False)
+        else:
+            embed.add_field(name="🎉 Gagnants", value="Aucun pari sur l'équipe gagnante!", inline=False)
+
+        await channel.send(embed=embed)
+        print(f"[NHL AUTO-BET] Pari fermé automatiquement: {winner_team} a gagné!")
 
     @app_commands.command(name='createbet', description='Créer un nouveau pari communautaire (Admin seulement)')
     @has_admin_role()
@@ -315,6 +533,109 @@ class Betting(commands.Cog):
             )
 
         await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name='setupnhlbet', description='Configurer le système de paris NHL automatiques (Admin seulement)')
+    @app_commands.describe(
+        channel='Le salon où poster les paris NHL automatiques',
+        enabled='Activer ou désactiver le système'
+    )
+    @has_admin_role()
+    async def setup_nhl_bet(self, interaction: discord.Interaction, channel: discord.TextChannel, enabled: bool = True):
+        """Configurer le système de paris NHL automatiques 🏒"""
+
+        nhl_auto_bet_config[interaction.guild.id] = {
+            'channel_id': channel.id,
+            'enabled': enabled
+        }
+
+        status = "✅ activé" if enabled else "❌ désactivé"
+
+        embed = discord.Embed(
+            title="🏒 Configuration NHL Auto-Bet",
+            description=f"Le système de paris NHL automatiques a été {status}!",
+            color=discord.Color.green() if enabled else discord.Color.red()
+        )
+
+        embed.add_field(name="Salon", value=channel.mention, inline=False)
+        embed.add_field(name="Fréquence", value="Toutes les 24 heures", inline=True)
+        embed.add_field(name="Durée du pari", value="15 heures", inline=True)
+        embed.add_field(
+            name="ℹ️ Informations",
+            value="Le bot créera automatiquement un pari NHL toutes les 24 heures avec 2 équipes différentes.\n"
+                  "Les paris se fermeront automatiquement après 15 heures et le gagnant sera tiré au sort.",
+            inline=False
+        )
+
+        await interaction.response.send_message(embed=embed)
+
+        # Si activé, créer immédiatement un premier pari
+        if enabled:
+            await interaction.followup.send("🏒 Création du premier pari NHL dans quelques secondes...")
+            await asyncio.sleep(3)
+            await self.create_nhl_auto_bet(interaction.guild.id, nhl_auto_bet_config[interaction.guild.id])
+
+    @app_commands.command(name='nhlbetstatus', description='Voir le statut du système de paris NHL automatiques')
+    async def nhl_bet_status(self, interaction: discord.Interaction):
+        """Voir le statut du système de paris NHL automatiques 📊"""
+
+        config = nhl_auto_bet_config.get(interaction.guild.id)
+
+        if not config:
+            await interaction.response.send_message(
+                "❌ Le système de paris NHL n'est pas configuré sur ce serveur!\n"
+                "Utilisez `/setupnhlbet` pour le configurer.",
+                ephemeral=True
+            )
+            return
+
+        enabled = config.get('enabled', False)
+        channel_id = config.get('channel_id')
+        channel = interaction.guild.get_channel(channel_id)
+
+        embed = discord.Embed(
+            title="🏒 Statut NHL Auto-Bet",
+            color=discord.Color.green() if enabled else discord.Color.red()
+        )
+
+        embed.add_field(name="Statut", value="✅ Activé" if enabled else "❌ Désactivé", inline=True)
+        embed.add_field(name="Salon", value=channel.mention if channel else "❌ Introuvable", inline=True)
+        embed.add_field(name="Fréquence", value="Toutes les 24 heures", inline=True)
+        embed.add_field(name="Durée du pari", value="15 heures", inline=True)
+
+        # Compter les paris NHL actifs
+        nhl_bets = [bet for bet_id, bet in active_bets.items()
+                    if bet.get('auto_nhl', False) and bet.get('guild') == interaction.guild.id and bet.get('active', False)]
+
+        embed.add_field(name="Paris NHL actifs", value=str(len(nhl_bets)), inline=True)
+
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name='forcenhlbet', description='Forcer la création d\'un pari NHL immédiatement (Admin seulement)')
+    @has_admin_role()
+    async def force_nhl_bet(self, interaction: discord.Interaction):
+        """Forcer la création d'un pari NHL immédiatement 🏒"""
+
+        config = nhl_auto_bet_config.get(interaction.guild.id)
+
+        if not config:
+            await interaction.response.send_message(
+                "❌ Le système de paris NHL n'est pas configuré!\n"
+                "Utilisez `/setupnhlbet` pour le configurer.",
+                ephemeral=True
+            )
+            return
+
+        if not config.get('enabled', False):
+            await interaction.response.send_message(
+                "❌ Le système de paris NHL est désactivé!\n"
+                "Utilisez `/setupnhlbet` pour l'activer.",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.send_message("🏒 Création d'un pari NHL...")
+        await self.create_nhl_auto_bet(interaction.guild.id, config)
+        await interaction.followup.send("✅ Pari NHL créé avec succès!")
 
 async def setup(bot):
     await bot.add_cog(Betting(bot))

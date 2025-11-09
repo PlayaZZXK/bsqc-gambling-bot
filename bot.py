@@ -189,7 +189,9 @@ async def show_commands(interaction: discord.Interaction):
         value=(
             "`/giveadmin` - Donner des Skulls sans limite (Admin)\n"
             "`/setlottery` - Configurer la loterie (Admin)\n"
-            "`/createbet` - Créer un pari personnalisé (Admin)"
+            "`/createbet` - Créer un pari personnalisé (Admin)\n"
+            "`/setupnhlbet` - Configurer les paris NHL auto (Admin)\n"
+            "`/forcenhlbet` - Forcer un pari NHL maintenant (Admin)"
         ),
         inline=False
     )
@@ -197,7 +199,9 @@ async def show_commands(interaction: discord.Interaction):
     embed.add_field(
         name="🎲 Paris & Jeux",
         value=(
-            "`/bet` - Placer un pari simple\n"
+            "`/placebet` - Placer un pari sur une option\n"
+            "`/activebets` - Voir les paris actifs\n"
+            "`/nhlbetstatus` - Statut des paris NHL auto\n"
             "`/listejeux` - Voir tous les jeux de gambling disponibles"
         ),
         inline=False
