@@ -706,16 +706,30 @@ class Poker(commands.Cog):
                     return
 
             # Vérifier si le tour de mises est terminé
-            active = game.get_active_players()
-            if not active:
+            # On vérifie les joueurs qui sont toujours dans la main (pas fold)
+            players_in_hand = game.get_players_in_hand()
+
+            # Si tout le monde a fold sauf 1, c'est terminé (déjà géré plus haut)
+            if len(players_in_hand) <= 1:
                 betting_complete = True
             else:
-                # Tous les joueurs actifs doivent avoir misé la même somme
-                bets = [p.current_bet for p in active]
-                if len(set(bets)) == 1:
+                # Vérifier que tous les joueurs qui peuvent encore jouer ont misé la même somme
+                # Les joueurs all-in n'ont pas besoin de matcher
+                players_who_can_bet = [p for p in players_in_hand if not p.is_all_in]
+
+                if len(players_who_can_bet) == 0:
+                    # Tout le monde est all-in, on passe à la prochaine phase
                     betting_complete = True
-                elif round_count > 20:  # Sécurité
+                elif len(players_who_can_bet) == 1:
+                    # Un seul joueur peut encore jouer, le tour est terminé
                     betting_complete = True
+                else:
+                    # Vérifier que tous ont misé la même somme
+                    bets = [p.current_bet for p in players_who_can_bet]
+                    if len(set(bets)) == 1:
+                        betting_complete = True
+                    elif round_count > 20:  # Sécurité
+                        betting_complete = True
 
     async def end_hand(self, channel: discord.TextChannel, game: PokerGame):
         """Terminer la main et distribuer le pot"""
