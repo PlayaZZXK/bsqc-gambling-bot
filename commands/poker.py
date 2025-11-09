@@ -609,51 +609,74 @@ class Poker(commands.Cog):
         await self.start_poker_game(interaction.channel, game)
 
     async def start_poker_game(self, channel: discord.TextChannel, game: PokerGame):
-        """Commencer la partie de poker"""
+        """Commencer la partie de poker - Mode tournoi"""
 
-        await channel.send(f"🎰 **La partie de poker commence!** Bonne chance à tous!")
+        await channel.send(f"🎰 **Le tournoi de poker commence!** Bonne chance à tous!\n💡 Le jeu continue jusqu'à ce qu'un seul joueur ait encore des chips!")
 
-        # Distribuer les cartes
-        game.start_new_hand()
+        hand_number = 1
 
-        # Envoyer les cartes privées à chaque joueur
-        for player in game.players:
-            try:
-                cards_str = " ".join([str(card) for card in player.hand])
-                await player.user.send(f"🎴 **Tes cartes:** {cards_str}")
-            except:
-                pass  # Si le joueur a bloqué les DMs
+        # Continuer jusqu'à ce qu'il ne reste qu'un joueur avec des chips
+        while True:
+            # Compter les joueurs avec des chips
+            players_with_chips = [p for p in game.players if p.chips > 0]
 
-        # Phase Pre-flop
-        await self.play_betting_round(channel, game, "Pre-Flop")
+            if len(players_with_chips) <= 1:
+                # Un seul joueur reste - VICTOIRE!
+                await self.end_tournament(channel, game)
+                return
 
-        # Vérifier si la main est terminée
-        if len(game.get_players_in_hand()) == 1:
-            await self.end_hand(channel, game)
-            return
+            await channel.send(f"\n🃏 **MAIN #{hand_number}** 🃏")
 
-        # Flop (3 cartes)
-        game.community_cards.extend(game.deck.deal(3))
-        await self.play_betting_round(channel, game, "Flop")
+            # Distribuer les cartes pour cette main
+            game.start_new_hand()
 
-        if len(game.get_players_in_hand()) == 1:
-            await self.end_hand(channel, game)
-            return
+            # Envoyer les cartes privées à chaque joueur
+            for player in game.players:
+                if player.chips > 0:  # Seulement les joueurs avec des chips
+                    try:
+                        cards_str = " ".join([str(card) for card in player.hand])
+                        await player.user.send(f"🎴 **Main #{hand_number} - Tes cartes:** {cards_str}")
+                    except:
+                        pass  # Si le joueur a bloqué les DMs
 
-        # Turn (1 carte)
-        game.community_cards.extend(game.deck.deal(1))
-        await self.play_betting_round(channel, game, "Turn")
+            # Phase Pre-flop
+            await self.play_betting_round(channel, game, "Pre-Flop")
 
-        if len(game.get_players_in_hand()) == 1:
-            await self.end_hand(channel, game)
-            return
+            # Vérifier si la main est terminée
+            if len(game.get_players_in_hand()) == 1:
+                await self.end_hand(channel, game, hand_number, is_tournament=True)
+                hand_number += 1
+                await asyncio.sleep(3)  # Pause entre les mains
+                continue
 
-        # River (1 carte)
-        game.community_cards.extend(game.deck.deal(1))
-        await self.play_betting_round(channel, game, "River")
+            # Flop (3 cartes)
+            game.community_cards.extend(game.deck.deal(3))
+            await self.play_betting_round(channel, game, "Flop")
 
-        # Showdown
-        await self.end_hand(channel, game)
+            if len(game.get_players_in_hand()) == 1:
+                await self.end_hand(channel, game, hand_number, is_tournament=True)
+                hand_number += 1
+                await asyncio.sleep(3)
+                continue
+
+            # Turn (1 carte)
+            game.community_cards.extend(game.deck.deal(1))
+            await self.play_betting_round(channel, game, "Turn")
+
+            if len(game.get_players_in_hand()) == 1:
+                await self.end_hand(channel, game, hand_number, is_tournament=True)
+                hand_number += 1
+                await asyncio.sleep(3)
+                continue
+
+            # River (1 carte)
+            game.community_cards.extend(game.deck.deal(1))
+            await self.play_betting_round(channel, game, "River")
+
+            # Showdown
+            await self.end_hand(channel, game, hand_number, is_tournament=True)
+            hand_number += 1
+            await asyncio.sleep(3)  # Pause entre les mains
 
     async def play_betting_round(self, channel: discord.TextChannel, game: PokerGame, phase: str):
         """Jouer un tour de mises"""
@@ -731,7 +754,7 @@ class Poker(commands.Cog):
                     elif round_count > 20:  # Sécurité
                         betting_complete = True
 
-    async def end_hand(self, channel: discord.TextChannel, game: PokerGame):
+    async def end_hand(self, channel: discord.TextChannel, game: PokerGame, hand_number: int = 1, is_tournament: bool = False):
         """Terminer la main et distribuer le pot"""
 
         winners = game.determine_winners()
@@ -739,8 +762,9 @@ class Poker(commands.Cog):
         # Partager le pot
         pot_share = game.pot // len(winners)
 
+        title = f"🏆 Résultats - Main #{hand_number}" if is_tournament else "🏆 Résultats du Poker"
         embed = discord.Embed(
-            title="🏆 Résultats du Poker",
+            title=title,
             description=f"**Pot total:** {game.pot:,} {CURRENCY_NAME}s",
             color=discord.Color.gold()
         )
@@ -765,28 +789,140 @@ class Poker(commands.Cog):
         # Afficher les gagnants
         winners_text = []
         for winner, rank, values in winners:
-            # Redonner les chips au joueur (balance Skulls)
-            db.modify_balance(winner.user.id, game.guild_id, pot_share, "poker win")
+            # En mode tournoi, ajouter aux chips. Sinon, redonner au balance
+            if is_tournament:
+                winner.chips += pot_share
+            else:
+                db.modify_balance(winner.user.id, game.guild_id, pot_share, "poker win")
 
-            # Mettre à jour les stats
-            profile = get_user_profile(winner.user.id, game.guild_id)
-            db.update_user_profile(
-                winner.user.id,
-                game.guild_id,
-                games_played=profile['games_played'] + 1,
-                games_won=profile['games_won'] + 1
-            )
-
-            # XP
-            add_xp(winner.user.id, game.guild_id, 50)
+            # XP pour gagner une main
+            add_xp(winner.user.id, game.guild_id, 25 if is_tournament else 50)
 
             rank_name = rank.name.replace('_', ' ').title() if rank else "Tout le monde a fold"
             hand_str = " ".join([str(card) for card in winner.hand])
-            winners_text.append(f"🏆 {winner.user.mention}\n**Main:** {hand_str}\n**Rang:** {rank_name}\n**Gain:** +{pot_share:,} {CURRENCY_NAME}s")
 
-        # Mettre à jour les stats des perdants aussi
+            if is_tournament:
+                winners_text.append(f"🏆 {winner.user.mention}\n**Main:** {hand_str}\n**Rang:** {rank_name}\n**Gain:** +{pot_share:,} chips\n**Total:** {winner.chips:,} chips")
+            else:
+                winners_text.append(f"🏆 {winner.user.mention}\n**Main:** {hand_str}\n**Rang:** {rank_name}\n**Gain:** +{pot_share:,} {CURRENCY_NAME}s")
+
+        embed.add_field(name="🎉 Gagnant(s)", value="\n\n".join(winners_text), inline=False)
+
+        # Afficher le statut des joueurs en mode tournoi
+        if is_tournament:
+            players_status = []
+            for player in sorted(game.players, key=lambda p: p.chips, reverse=True):
+                status_emoji = "💀" if player.chips == 0 else "✅"
+                players_status.append(f"{status_emoji} {player.user.mention}: {player.chips:,} chips")
+
+            embed.add_field(name="📊 Statut des joueurs", value="\n".join(players_status), inline=False)
+
+        await channel.send(embed=embed)
+
+        # Nettoyer seulement si ce n'est pas un tournoi
+        if not is_tournament:
+            # Mettre à jour les stats
+            for winner, rank, values in winners:
+                profile = get_user_profile(winner.user.id, game.guild_id)
+                db.update_user_profile(
+                    winner.user.id,
+                    game.guild_id,
+                    games_played=profile['games_played'] + 1,
+                    games_won=profile['games_won'] + 1
+                )
+
+            for player in game.players:
+                if not any(w[0].user.id == player.user.id for w in winners):
+                    profile = get_user_profile(player.user.id, game.guild_id)
+                    db.update_user_profile(
+                        player.user.id,
+                        game.guild_id,
+                        games_played=profile['games_played'] + 1,
+                        games_lost=profile['games_lost'] + 1
+                    )
+                    add_xp(player.user.id, game.guild_id, 10)
+
+            game.is_finished = True
+            if channel.id in self.active_games:
+                del self.active_games[channel.id]
+
+    async def end_tournament(self, channel: discord.TextChannel, game: PokerGame):
+        """Terminer le tournoi et distribuer les gains"""
+
+        # Trouver le gagnant (celui avec des chips)
+        winner = None
         for player in game.players:
-            if not any(w[0].user.id == player.user.id for w in winners):
+            if player.chips > 0:
+                winner = player
+                break
+
+        if not winner:
+            await channel.send("❌ Erreur: Aucun gagnant trouvé!")
+            game.is_finished = True
+            if channel.id in self.active_games:
+                del self.active_games[channel.id]
+            return
+
+        # Calculer le pot total (tous les buy-ins)
+        total_pot = game.buyin * len(game.players)
+
+        embed = discord.Embed(
+            title="🏆🎉 VICTOIRE DU TOURNOI! 🎉🏆",
+            description=f"{winner.user.mention} a gagné le tournoi de poker!",
+            color=discord.Color.gold()
+        )
+
+        embed.add_field(
+            name="💰 Gains",
+            value=f"**+{total_pot:,} {CURRENCY_NAME}s**",
+            inline=False
+        )
+
+        embed.add_field(
+            name="🎮 Chips finaux",
+            value=f"{winner.chips:,} chips",
+            inline=True
+        )
+
+        embed.add_field(
+            name="👥 Joueurs éliminés",
+            value=f"{len(game.players) - 1}",
+            inline=True
+        )
+
+        # Classement final
+        ranking = []
+        sorted_players = sorted(game.players, key=lambda p: p.chips, reverse=True)
+        for i, player in enumerate(sorted_players):
+            emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
+            status = f"{player.chips:,} chips" if player.chips > 0 else "Éliminé 💀"
+            ranking.append(f"{emoji} {player.user.mention} - {status}")
+
+        embed.add_field(name="📊 Classement Final", value="\n".join(ranking), inline=False)
+
+        embed.set_footer(text=f"Tournoi de {len(game.players)} joueurs • Buy-in: {game.buyin:,} Skulls")
+        embed.set_timestamp(discord.utils.utcnow())
+
+        await channel.send(embed=embed)
+
+        # Donner les gains au gagnant
+        db.modify_balance(winner.user.id, game.guild_id, total_pot, "poker tournament win")
+
+        # Mettre à jour les stats
+        profile = get_user_profile(winner.user.id, game.guild_id)
+        db.update_user_profile(
+            winner.user.id,
+            game.guild_id,
+            games_played=profile['games_played'] + 1,
+            games_won=profile['games_won'] + 1
+        )
+
+        # XP pour avoir gagné le tournoi
+        add_xp(winner.user.id, game.guild_id, 100)
+
+        # Stats pour les perdants
+        for player in game.players:
+            if player.user.id != winner.user.id:
                 profile = get_user_profile(player.user.id, game.guild_id)
                 db.update_user_profile(
                     player.user.id,
@@ -795,11 +931,7 @@ class Poker(commands.Cog):
                     games_lost=profile['games_lost'] + 1
                 )
                 # XP pour participation
-                add_xp(player.user.id, game.guild_id, 10)
-
-        embed.add_field(name="🎉 Gagnant(s)", value="\n\n".join(winners_text), inline=False)
-
-        await channel.send(embed=embed)
+                add_xp(player.user.id, game.guild_id, 30)
 
         # Nettoyer
         game.is_finished = True
