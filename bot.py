@@ -153,13 +153,6 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # Si le bot est mentionné
-    if bot.user.mentioned_in(message) and not message.mention_everyone:
-        await message.channel.send(
-            "Yoo, Tes écoeurer de jamais avec une crisse de cenne? Viens t'amuser avk moé, "
-            "Jtel dis men ca niaise pas ici. La liste de tout mes jeux : **!listejeux**"
-        )
-
     # Traiter les commandes normalement
     await bot.process_commands(message)
 

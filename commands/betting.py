@@ -6,8 +6,11 @@ import asyncio
 import sys
 import random
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, OWNER_ID
+from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, OWNER_ID, add_balance
 from database import db
+
+# Dictionnaire pour stocker les résultats prédéfinis des paris
+predefined_results = {}
 
 # Rôles autorisés à exécuter les commandes admin
 ADMIN_ROLE_IDS = [
@@ -163,22 +166,27 @@ class Betting(commands.Cog):
         if not bet.get('active', False):
             return
 
-        # Choisir un gagnant basé sur les cotes (pondéré)
-        # Plus la cote est basse, plus l'équipe a de chances de gagner
-        odds1 = bet['options'][0]['odds']
-        odds2 = bet['options'][1]['odds']
+        # Vérifier si un résultat a été prédéfini
+        if bet_id in predefined_results:
+            winning_option = predefined_results[bet_id]
+            del predefined_results[bet_id]  # Nettoyer après utilisation
+        else:
+            # Choisir un gagnant basé sur les cotes (pondéré)
+            # Plus la cote est basse, plus l'équipe a de chances de gagner
+            odds1 = bet['options'][0]['odds']
+            odds2 = bet['options'][1]['odds']
 
-        # Convertir les cotes en probabilités
-        # Probabilité inverse des cotes (cote plus basse = plus probable)
-        prob1 = 1 / odds1
-        prob2 = 1 / odds2
-        total_prob = prob1 + prob2
+            # Convertir les cotes en probabilités
+            # Probabilité inverse des cotes (cote plus basse = plus probable)
+            prob1 = 1 / odds1
+            prob2 = 1 / odds2
+            total_prob = prob1 + prob2
 
-        # Normaliser les probabilités pour qu'elles totalisent 100%
-        prob1_normalized = prob1 / total_prob
+            # Normaliser les probabilités pour qu'elles totalisent 100%
+            prob1_normalized = prob1 / total_prob
 
-        # Tirer au sort avec les probabilités pondérées
-        winning_option = 1 if random.random() < prob1_normalized else 2
+            # Tirer au sort avec les probabilités pondérées
+            winning_option = 1 if random.random() < prob1_normalized else 2
 
         # Fermer le pari
         bet['active'] = False
@@ -636,6 +644,52 @@ class Betting(commands.Cog):
         await interaction.response.send_message("🏒 Création d'un pari NHL...")
         await self.create_nhl_auto_bet(interaction.guild.id, config)
         await interaction.followup.send("✅ Pari NHL créé avec succès!")
+
+    @app_commands.command(name='setresultbet', description='Prédéfinir le résultat d\'un pari (Admin seulement)')
+    @app_commands.describe(
+        bet_id='L\'ID du pari',
+        winning_option='Numéro de l\'option gagnante (1, 2, 3, etc.)'
+    )
+    @has_admin_role()
+    async def set_result_bet(self, interaction: discord.Interaction, bet_id: str, winning_option: int):
+        """Prédéfinir le résultat d'un pari (sera appliqué à la fermeture) 🎯"""
+
+        if bet_id not in active_bets:
+            await interaction.response.send_message("❌ Ce pari n'existe pas!", ephemeral=True)
+            return
+
+        bet = active_bets[bet_id]
+
+        if not bet['active']:
+            await interaction.response.send_message("❌ Ce pari est déjà fermé!", ephemeral=True)
+            return
+
+        if winning_option < 1 or winning_option > len(bet['options']):
+            await interaction.response.send_message(
+                f"❌ Option invalide! Le pari a {len(bet['options'])} options (1-{len(bet['options'])}).",
+                ephemeral=True
+            )
+            return
+
+        # Stocker le résultat prédéfini (ne ferme PAS le pari)
+        predefined_results[bet_id] = winning_option
+        winning_opt = bet['options'][winning_option - 1]
+
+        embed = discord.Embed(
+            title="✅ Résultat prédéfini",
+            description=f"**{bet['title']}**\n\n**Option gagnante définie:** {winning_opt['name']} ({winning_opt['odds']}x)",
+            color=discord.Color.green()
+        )
+
+        embed.add_field(
+            name="ℹ️ Information",
+            value="Le pari reste **actif** jusqu'à sa fermeture automatique.\n"
+                  "Le résultat sera appliqué quand le pari se terminera.",
+            inline=False
+        )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        print(f"[BETTING] Résultat prédéfini par {interaction.user.name}: Option {winning_option} pour bet {bet_id}")
 
 async def setup(bot):
     await bot.add_cog(Betting(bot))
