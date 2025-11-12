@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp
+from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class BlackjackView(discord.ui.View):
@@ -50,31 +50,48 @@ class BlackjackView(discord.ui.View):
     
     async def end_game(self, interaction, won, reason):
         self.game_over = True
-        
+
         for item in self.children:
             item.disabled = True
-        
+
         player_value = self.calculate_hand(self.player_hand)
         dealer_value = self.calculate_hand(self.dealer_hand)
-        
+
         if won:
-            profit = self.amount
-            self.profile['balance'] += self.amount * 2  # Récupère mise + gain
-            self.profile['gambling_profit'] += profit
-            self.profile['games_won'] += 1
+            winnings = self.amount * 2  # mise + gain
+            if winnings > MAX_WIN_AMOUNT:
+                winnings = MAX_WIN_AMOUNT
+            profit = winnings - self.amount
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "blackjack win")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=self.profile['gambling_profit'] + profit,
+                games_won=self.profile['games_won'] + 1,
+                games_played=self.profile['games_played'] + 1,
+                total_wagered=self.profile['total_wagered'] + self.amount
+            )
+            self.profile['balance'] = new_balance
             color = discord.Color.green()
             title = "🎉 Gagné!"
         else:
-            self.profile['gambling_profit'] -= self.amount
-            self.profile['games_lost'] += 1
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -self.amount, "blackjack loss")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=self.profile['gambling_profit'] - self.amount,
+                games_lost=self.profile['games_lost'] + 1,
+                games_played=self.profile['games_played'] + 1,
+                total_wagered=self.profile['total_wagered'] + self.amount
+            )
+            self.profile['balance'] = new_balance
             color = discord.Color.red()
             title = "💔 Perdu!"
-        
-        self.profile['games_played'] += 1
-        self.profile['total_wagered'] += self.amount
 
         xp_gain = 25 if won else 10
         leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
+        if leveled_up:
+            self.profile = get_user_profile(interaction.user.id, interaction.guild.id)
         embed = discord.Embed(title=title, description=reason, color=color)
         embed.add_field(
             name="Ta main",
@@ -148,6 +165,7 @@ class BlackjackView(discord.ui.View):
             await self.end_game(interaction, False, "💔 La main du croupier est meilleure...")
         else:
             # Égalité - rendre la mise
+            db.modify_balance(interaction.user.id, interaction.guild.id, self.amount, "blackjack tie")
             self.profile['balance'] += self.amount
             for item in self.children:
                 item.disabled = True
@@ -173,12 +191,21 @@ class Blackjack(commands.Cog):
 
     @app_commands.command(name='blackjack', description='Jouer au Blackjack! ♠️')
     @app_commands.describe(montant='Le montant à miser')
-    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
     async def blackjack(self, interaction: discord.Interaction, montant: int):
         """Jouer au Blackjack! ♠️"""
 
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "blackjack")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s", ephemeral=True)
+            return
+
         if montant <= 0:
             await interaction.response.send_message("❌ Le montant doit être positif!", ephemeral=True)
+            return
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!", ephemeral=True)
             return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
@@ -188,6 +215,7 @@ class Blackjack(commands.Cog):
             return
 
         # Déduire la mise
+        db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "blackjack bet")
         profile['balance'] -= montant
         # Créer le deck
         cards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'] * 4
@@ -206,7 +234,8 @@ class Blackjack(commands.Cog):
         if player_value == 21:
             dealer_value = view.calculate_hand(dealer_hand)
             if dealer_value == 21:
-                # Égalité
+                # Égalité - rendre la mise
+                db.modify_balance(interaction.user.id, interaction.guild.id, montant, "blackjack tie")
                 profile['balance'] += montant
                 embed = discord.Embed(
                     title="🤝 Double Blackjack! Égalité!",
@@ -216,12 +245,19 @@ class Blackjack(commands.Cog):
             else:
                 # Blackjack naturel - bonus 2.5x
                 winnings = int(montant * 2.5)
-                profit = int(montant * 1.5)
-                profile['balance'] += winnings
-                profile['gambling_profit'] += profit
-                profile['games_won'] += 1
-                profile['games_played'] += 1
-                profile['total_wagered'] += montant
+                if winnings > MAX_WIN_AMOUNT:
+                    winnings = MAX_WIN_AMOUNT
+                profit = winnings - montant
+                new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "blackjack natural win")
+                db.update_user_profile(
+                    interaction.user.id,
+                    interaction.guild.id,
+                    gambling_profit=profile['gambling_profit'] + profit,
+                    games_won=profile['games_won'] + 1,
+                    games_played=profile['games_played'] + 1,
+                    total_wagered=profile['total_wagered'] + montant
+                )
+                profile['balance'] = new_balance
 
                 add_xp(interaction.user.id, interaction.guild.id, 50)
                 embed = discord.Embed(

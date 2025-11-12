@@ -14,6 +14,15 @@ PREFIX = "!"
 CURRENCY_NAME = "Skull"
 CURRENCY_EMOJI = "💀"
 
+# Limites de jeu
+MAX_BET_AMOUNT = 50  # Mise maximum pour les jeux normaux
+MAX_WIN_AMOUNT = 340  # Gain maximum pour les jeux normaux
+MAX_NHL_BET = 5000  # Mise maximum pour les paris NHL
+GAME_COOLDOWN = 3  # Cooldown en secondes entre chaque jeu
+
+# Dictionnaire pour gérer les cooldowns par utilisateur et jeu
+game_cooldowns = {}
+
 # Intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -57,6 +66,24 @@ signal.signal(signal.SIGTERM, save_on_exit)  # Fermeture normale
 def get_user_profile(user_id, guild_id):
     """Récupère un profil depuis la base de données SQLite"""
     return db.get_user_profile(user_id, guild_id)
+
+# Fonction pour vérifier et gérer les cooldowns
+def check_cooldown(user_id, game_name):
+    """
+    Vérifie si l'utilisateur peut jouer (pas en cooldown)
+    Retourne (can_play: bool, remaining_time: float)
+    """
+    now = datetime.now()
+    key = f"{user_id}_{game_name}"
+
+    if key in game_cooldowns:
+        elapsed = (now - game_cooldowns[key]).total_seconds()
+        if elapsed < GAME_COOLDOWN:
+            return False, GAME_COOLDOWN - elapsed
+
+    # Mettre à jour le cooldown
+    game_cooldowns[key] = now
+    return True, 0
 
 # Backup automatique toutes les heures
 async def auto_backup():

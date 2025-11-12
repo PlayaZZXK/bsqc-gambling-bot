@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class Plinko(commands.Cog):
@@ -15,12 +15,19 @@ class Plinko(commands.Cog):
 
     @app_commands.command(name='plinko', description='Jeu Plinko! La balle tombe!')
     @app_commands.describe(montant='Le montant à miser')
-    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
     async def plinko(self, interaction: discord.Interaction, montant: int):
         """Jeu Plinko! 🎯 La balle tombe!"""
 
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "plinko")
+        if not can_play:
+            return await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+
         if montant <= 0:
             return await interaction.response.send_message("❌ Montant invalide!")
+
+        if montant > MAX_BET_AMOUNT:
+            return await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
         if profile['balance'] < montant:
@@ -36,14 +43,35 @@ class Plinko(commands.Cog):
         multiplier = self.multipliers[slot]
 
         winnings = int(montant * multiplier)
+        # Appliquer la limite de gain maximum
+        if winnings > MAX_WIN_AMOUNT:
+            winnings = MAX_WIN_AMOUNT
         profit = winnings - montant
         won = multiplier > 1.0
 
-        profile['balance'] += profit
-        profile['gambling_profit'] += profit
-        profile['games_won' if won else 'games_lost'] += 1
-        profile['games_played'] += 1
-        profile['total_wagered'] += montant
+        if won:
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "plinko win")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] + profit,
+                games_won=profile['games_won'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
+        else:
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "plinko loss")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] - montant,
+                games_lost=profile['games_lost'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
+
         add_xp(interaction.user.id, interaction.guild.id, 15)
         slots_display = "".join([f"[**×{m}**]" if i == slot else f"[×{m}]" for i, m in enumerate(self.multipliers)])
 

@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp
+from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class Dice(commands.Cog):
@@ -17,7 +17,6 @@ class Dice(commands.Cog):
         prediction='Ta prédiction: over/under/exact',
         montant='Le montant à miser'
     )
-    @app_commands.checks.cooldown(1, 3, key=lambda i: i.user.id)
     async def dice(self, interaction: discord.Interaction, prediction: str, montant: int):
         """
         Jouer aux dés! 🎲
@@ -26,6 +25,12 @@ class Dice(commands.Cog):
         - under 7: Gagner si le total est < 7 (côte 2x)
         - exact 7: Gagner si le total est = 7 (côte 6x)
         """
+
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "dice")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
 
         prediction = prediction.lower()
 
@@ -43,6 +48,10 @@ class Dice(commands.Cog):
 
         if montant <= 0:
             await interaction.response.send_message("❌ Le montant doit être positif!")
+            return
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
             return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
@@ -84,25 +93,41 @@ class Dice(commands.Cog):
         # Calculs
         if won:
             winnings = int(montant * multiplier)
+            # Appliquer la limite de gain maximum
+            if winnings > MAX_WIN_AMOUNT:
+                winnings = MAX_WIN_AMOUNT
             profit = winnings - montant
-            profile['balance'] += profit
-            profile['gambling_profit'] += profit
-            profile['games_won'] += 1
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "dice win")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] + profit,
+                games_won=profile['games_won'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
             color = discord.Color.green()
             title = "🎉 Gagné!"
         else:
-            profile['balance'] -= montant
-            profile['gambling_profit'] -= montant
-            profile['games_lost'] += 1
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "dice loss")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] - montant,
+                games_lost=profile['games_lost'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
             color = discord.Color.red()
             title = "💔 Perdu!"
-
-        profile['games_played'] += 1
-        profile['total_wagered'] += montant
 
         # XP
         xp_gain = 20 if won else 5
         leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
+        if leveled_up:
+            profile = get_user_profile(interaction.user.id, interaction.guild.id)
         # Emoji pour les dés
         dice_emoji = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
 

@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class Wheel(commands.Cog):
@@ -22,12 +22,21 @@ class Wheel(commands.Cog):
 
     @app_commands.command(name='wheel', description='Roue de la fortune!')
     @app_commands.describe(montant='Le montant à miser')
-    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
     async def wheel(self, interaction: discord.Interaction, montant: int):
         """Roue de la fortune! 🎡"""
 
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "wheel")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
+
         if montant <= 0:
             return await interaction.response.send_message("❌ Montant invalide!")
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
+            return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
         if profile['balance'] < montant:
@@ -43,19 +52,41 @@ class Wheel(commands.Cog):
         multiplier = result[1]
 
         if multiplier > 0:
-            winnings = montant * multiplier
+            winnings = int(montant * multiplier)
+            # Appliquer la limite de gain maximum
+            if winnings > MAX_WIN_AMOUNT:
+                winnings = MAX_WIN_AMOUNT
             profit = winnings - montant
-            won = True
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "wheel win")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] + profit,
+                games_won=profile['games_won'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
+            xp_gain = int(15 * multiplier)
         else:
-            profit = -montant
-            won = False
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "wheel loss")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] - montant,
+                games_lost=profile['games_lost'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
+            xp_gain = 5
 
-        profile['balance'] += profit
-        profile['gambling_profit'] += profit
-        profile['games_won' if won else 'games_lost'] += 1
-        profile['games_played'] += 1
-        profile['total_wagered'] += montant
-        add_xp(interaction.user.id, interaction.guild.id, int(15 * multiplier) if won else 5)
+        leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
+        if leveled_up:
+            profile = get_user_profile(interaction.user.id, interaction.guild.id)
+
+        won = multiplier > 0
+        profit = winnings - montant if won else -montant
         embed = discord.Embed(
             title=f"🎡 {result[0]}!",
             description=f"**Multiplicateur: ×{multiplier}**",

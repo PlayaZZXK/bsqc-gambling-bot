@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class Cups(commands.Cog):
@@ -17,15 +17,24 @@ class Cups(commands.Cog):
         choix='Ton choix: 1, 2 ou 3',
         montant='Le montant à miser'
     )
-    @app_commands.checks.cooldown(1, 5, key=lambda i: i.user.id)
     async def cups(self, interaction: discord.Interaction, choix: int, montant: int):
         """Jeu des gobelets! 🥤 Choisis 1, 2 ou 3"""
+
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "cups")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
 
         if choix not in [1, 2, 3]:
             return await interaction.response.send_message("❌ Choisis 1, 2 ou 3!")
 
         if montant <= 0:
             return await interaction.response.send_message("❌ Montant invalide!")
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
+            return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
         if profile['balance'] < montant:
@@ -48,24 +57,45 @@ class Cups(commands.Cog):
                 cups_display.append("❌" if i == choix else "🥤")
 
         if won:
-            profit = montant * 2
-            profile['balance'] += profit
-            profile['gambling_profit'] += profit
-            profile['games_won'] += 1
+            winnings = montant * 2
+            # Appliquer la limite de gain maximum
+            if winnings > MAX_WIN_AMOUNT:
+                winnings = MAX_WIN_AMOUNT
+            profit = winnings - montant
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "cups win")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] + profit,
+                games_won=profile['games_won'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
+            xp_gain = 20
         else:
-            profile['balance'] -= montant
-            profile['gambling_profit'] -= montant
-            profile['games_lost'] += 1
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "cups loss")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] - montant,
+                games_lost=profile['games_lost'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
+            xp_gain = 5
 
-        profile['games_played'] += 1
-        profile['total_wagered'] += montant
-        add_xp(interaction.user.id, interaction.guild.id, 20 if won else 5)
+        leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
+        if leveled_up:
+            profile = get_user_profile(interaction.user.id, interaction.guild.id)
+
         embed = discord.Embed(
             title="🎉 Gagné!" if won else "💔 Perdu!",
             description=f"{' '.join(cups_display)}\n\n**La balle était sous le gobelet {winning_cup}!**",
             color=discord.Color.green() if won else discord.Color.red()
         )
-        embed.add_field(name="Résultat", value=f"{'+' if won else '-'}{montant if not won else profit:,} {CURRENCY_NAME}s")
+        embed.add_field(name="Résultat", value=f"{'+' if won else '-'}{profit if won else montant:,} {CURRENCY_NAME}s")
         embed.add_field(name="Solde", value=f"{profile['balance']:,}")
 
         await msg.edit(embed=embed)

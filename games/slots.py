@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp
+from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class Slots(commands.Cog):
@@ -25,7 +25,6 @@ class Slots(commands.Cog):
 
     @app_commands.command(name='slots', description='Jouer aux machines à sous!')
     @app_commands.describe(montant='Le montant à miser')
-    @app_commands.checks.cooldown(1, 4, key=lambda i: i.user.id)
     async def slots(self, interaction: discord.Interaction, montant: int):
         """
         Jouer aux machines à sous! 🎰
@@ -42,8 +41,18 @@ class Slots(commands.Cog):
         2 symboles identiques = ×1.5
         """
 
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "slots")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
+
         if montant <= 0:
             await interaction.response.send_message("❌ Le montant doit être positif!")
+            return
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
             return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
@@ -95,6 +104,9 @@ class Slots(commands.Cog):
         # Calculs et mise à jour DB
         if won:
             winnings = int(montant * multiplier)
+            # Appliquer la limite de gain maximum
+            if winnings > MAX_WIN_AMOUNT:
+                winnings = MAX_WIN_AMOUNT
             profit = winnings - montant
             new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "slots win")
             db.update_user_profile(

@@ -6,7 +6,7 @@ import asyncio
 import sys
 import random
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, OWNER_ID, add_balance
+from bot import get_user_profile, CURRENCY_NAME, CURRENCY_EMOJI, add_xp, OWNER_ID, add_balance, MAX_NHL_BET
 from database import db
 
 # Dictionnaire pour stocker les résultats prédéfinis des paris
@@ -67,7 +67,7 @@ class Betting(commands.Cog):
             print("[NHL AUTO-BET] Système automatique NHL arrêté!")
 
     async def nhl_auto_bet_loop(self):
-        """Boucle qui crée automatiquement des paris NHL toutes les 24 heures"""
+        """Boucle qui crée automatiquement des paris NHL 5h après la fermeture du précédent"""
         await self.bot.wait_until_ready()
 
         while not self.bot.is_closed():
@@ -77,8 +77,8 @@ class Betting(commands.Cog):
                     if config.get('enabled', False):
                         await self.create_nhl_auto_bet(guild_id, config)
 
-                # Attendre 24 heures avant le prochain pari
-                await asyncio.sleep(86400)  # 24 heures = 86400 secondes
+                # Attendre 20 heures (15h de pari + 5h de pause) avant le prochain pari
+                await asyncio.sleep(72000)  # 20 heures = 72000 secondes
 
             except asyncio.CancelledError:
                 break
@@ -143,7 +143,7 @@ class Betting(commands.Cog):
                 inline=True
             )
 
-            embed.set_footer(text="🏒 Pari NHL automatique • Fermeture dans 15 heures")
+            embed.set_footer(text=f"🏒 Pari NHL automatique • Fermeture dans 15 heures • Max: {MAX_NHL_BET:,} Skulls")
 
             await channel.send(embed=embed)
 
@@ -364,6 +364,11 @@ class Betting(commands.Cog):
 
         if montant <= 0:
             await interaction.response.send_message("❌ Le montant doit être positif!")
+            return
+
+        # Vérifier la limite NHL si c'est un pari NHL auto
+        if bet.get('auto_nhl', False) and montant > MAX_NHL_BET:
+            await interaction.response.send_message(f"❌ Pour les paris NHL, la mise maximum est de {MAX_NHL_BET:,} {CURRENCY_NAME}s!")
             return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)

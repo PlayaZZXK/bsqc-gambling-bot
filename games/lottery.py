@@ -69,7 +69,10 @@ class Lottery(commands.Cog):
         if str(interaction.user.id) in lottery_data['tickets']:
             return await interaction.response.send_message("❌ Tu as déjà un ticket pour ce tirage!")
 
+        # Déduire le coût du ticket de la balance
+        db.modify_balance(interaction.user.id, interaction.guild.id, -self.ticket_price, "lottery ticket purchase")
         profile['balance'] -= self.ticket_price
+
         lottery_data['tickets'][str(interaction.user.id)] = interaction.user.display_name
         lottery_data['pot'] += self.ticket_price
 
@@ -97,14 +100,23 @@ class Lottery(commands.Cog):
         winner_id = random.choice(list(lottery_data['tickets'].keys()))
         winner = await self.bot.fetch_user(int(winner_id))
 
+        # Payer le gagnant - IMPORTANT: utiliser la DB!
         profile = get_user_profile(int(winner_id), interaction.guild.id)
-        profile['balance'] += lottery_data['pot']
-        profile['gambling_profit'] += (lottery_data['pot'] - self.ticket_price)
+        pot_amount = lottery_data['pot']
+        profit = pot_amount - self.ticket_price
+
+        new_balance = db.modify_balance(int(winner_id), interaction.guild.id, pot_amount, "lottery jackpot win")
+        db.update_user_profile(
+            int(winner_id),
+            interaction.guild.id,
+            gambling_profit=profile['gambling_profit'] + profit,
+            games_won=profile['games_won'] + 1
+        )
         save_lottery_data()
 
         embed = discord.Embed(
             title="🎉 GAGNANT DE LA LOTERIE!",
-            description=f"**{winner.mention}** a gagné **{lottery_data['pot']:,} {CURRENCY_NAME}s**!",
+            description=f"**{winner.mention}** a gagné **{pot_amount:,} {CURRENCY_NAME}s**!",
             color=discord.Color.gold()
         )
         embed.add_field(name="Tickets participants", value=str(len(lottery_data['tickets'])))

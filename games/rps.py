@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class RPS(commands.Cog):
@@ -17,9 +17,14 @@ class RPS(commands.Cog):
         choix='Ton choix: rock/paper/scissors',
         montant='Le montant à miser'
     )
-    @app_commands.checks.cooldown(1, 3, key=lambda i: i.user.id)
     async def rps(self, interaction: discord.Interaction, choix: str, montant: int):
         """Pierre, Papier, Ciseaux! ✊✋✌️"""
+
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "rps")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
 
         choix = choix.lower()
         if choix not in ['rock', 'paper', 'scissors', 'pierre', 'papier', 'ciseaux', 'r', 'p', 's']:
@@ -27,6 +32,10 @@ class RPS(commands.Cog):
 
         if montant <= 0:
             return await interaction.response.send_message("❌ Montant invalide!")
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
+            return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
         if profile['balance'] < montant:
@@ -58,25 +67,54 @@ class RPS(commands.Cog):
             result = "lose"
 
         if result == "win":
-            profit = montant
-            profile['balance'] += profit
-            profile['gambling_profit'] += profit
-            profile['games_won'] += 1
+            winnings = montant * 2
+            # Appliquer la limite de gain maximum
+            if winnings > MAX_WIN_AMOUNT:
+                winnings = MAX_WIN_AMOUNT
+            profit = winnings - montant
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "rps win")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] + profit,
+                games_won=profile['games_won'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
             title = "🎉 Tu gagnes!"
             color = discord.Color.green()
+            xp_gain = 15
         elif result == "lose":
-            profile['balance'] -= montant
-            profile['gambling_profit'] -= montant
-            profile['games_lost'] += 1
+            new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "rps loss")
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] - montant,
+                games_lost=profile['games_lost'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
+            profile['balance'] = new_balance
             title = "💔 Tu perds!"
             color = discord.Color.red()
+            xp_gain = 5
         else:
+            # Égalité - pas de changement de balance
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
             title = "🤝 Égalité!"
             color = discord.Color.orange()
+            xp_gain = 5
 
-        profile['games_played'] += 1
-        profile['total_wagered'] += montant
-        add_xp(interaction.user.id, interaction.guild.id, 15 if result == "win" else 5)
+        leveled_up = add_xp(interaction.user.id, interaction.guild.id, xp_gain)
+        if leveled_up:
+            profile = get_user_profile(interaction.user.id, interaction.guild.id)
+
         embed = discord.Embed(
             title=title,
             description=f"**Toi:** {player_choice}\n**Bot:** {bot_choice}",
@@ -84,7 +122,7 @@ class RPS(commands.Cog):
         )
 
         if result != "tie":
-            embed.add_field(name="Résultat", value=f"{'+' if result == 'win' else '-'}{montant:,} {CURRENCY_NAME}s")
+            embed.add_field(name="Résultat", value=f"{'+' if result == 'win' else '-'}{profit if result == 'win' else montant:,} {CURRENCY_NAME}s")
 
         embed.add_field(name="Solde", value=f"{profile['balance']:,}")
 

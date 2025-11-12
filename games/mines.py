@@ -4,7 +4,7 @@ from discord.ext import commands
 import random
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class MinesView(discord.ui.View):
@@ -64,9 +64,22 @@ class MinesView(discord.ui.View):
             item.disabled = True
         self.children[-1].disabled = True
 
-        self.profile['gambling_profit'] -= self.amount
-        self.profile['games_lost'] += 1
-        self.profile['games_played'] += 1
+        # Sauvegarder la perte dans la base de données
+        new_balance = db.modify_balance(self.interaction.user.id, self.interaction.guild.id, -self.amount, "mines loss")
+        db.update_user_profile(
+            self.interaction.user.id,
+            self.interaction.guild.id,
+            gambling_profit=self.profile['gambling_profit'] - self.amount,
+            games_lost=self.profile['games_lost'] + 1,
+            games_played=self.profile['games_played'] + 1,
+            total_wagered=self.profile['total_wagered'] + self.amount
+        )
+        self.profile['balance'] = new_balance
+
+        leveled_up = add_xp(self.interaction.user.id, self.interaction.guild.id, 5)
+        if leveled_up:
+            self.profile = get_user_profile(self.interaction.user.id, self.interaction.guild.id)
+
         embed = discord.Embed(title="💥 BOOM!", description=f"Perte: -{self.amount:,} {CURRENCY_NAME}s", color=discord.Color.red())
         await interaction.response.edit_message(embed=embed, view=self)
         self.stop()
@@ -78,13 +91,27 @@ class MinesView(discord.ui.View):
         self.game_over = True
         multiplier = 1 + (len(self.revealed) * 0.3)
         winnings = int(self.amount * multiplier)
+        # Appliquer la limite de gain maximum
+        if winnings > MAX_WIN_AMOUNT:
+            winnings = MAX_WIN_AMOUNT
         profit = winnings - self.amount
 
-        self.profile['balance'] += profit
-        self.profile['gambling_profit'] += profit
-        self.profile['games_won'] += 1
-        self.profile['games_played'] += 1
-        add_xp(self.interaction.user.id, self.interaction.guild.id, 20)
+        # Sauvegarder le gain dans la base de données
+        new_balance = db.modify_balance(self.interaction.user.id, self.interaction.guild.id, profit, "mines win")
+        db.update_user_profile(
+            self.interaction.user.id,
+            self.interaction.guild.id,
+            gambling_profit=self.profile['gambling_profit'] + profit,
+            games_won=self.profile['games_won'] + 1,
+            games_played=self.profile['games_played'] + 1,
+            total_wagered=self.profile['total_wagered'] + self.amount
+        )
+        self.profile['balance'] = new_balance
+
+        leveled_up = add_xp(self.interaction.user.id, self.interaction.guild.id, 20)
+        if leveled_up:
+            self.profile = get_user_profile(self.interaction.user.id, self.interaction.guild.id)
+
         for item in self.children:
             item.disabled = True
 
@@ -101,19 +128,29 @@ class Mines(commands.Cog):
         montant='Le montant à miser',
         num_mines='Nombre de mines (1-20, défaut: 5)'
     )
-    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
     async def mines(self, interaction: discord.Interaction, montant: int, num_mines: int = 5):
         """Jeu Mines! 💣 Évite les bombes!"""
 
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "mines")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
+
         if montant <= 0 or num_mines < 1 or num_mines > 20:
             return await interaction.response.send_message("❌ Montant/mines invalide!")
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
+            return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
         if profile['balance'] < montant:
             return await interaction.response.send_message(f"❌ Pas assez de {CURRENCY_NAME}s!")
 
-        profile['balance'] -= montant
-        profile['total_wagered'] += montant
+        # Déduire la mise du solde immédiatement
+        new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "mines bet")
+        profile['balance'] = new_balance
         view = MinesView(interaction, montant, profile, num_mines)
         embed = discord.Embed(title="💣 Mines", description=f"Évite les {num_mines} bombes!", color=discord.Color.blue())
         await interaction.response.send_message(embed=embed, view=view)

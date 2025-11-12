@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT
 from database import db
 
 active_duels = {}
@@ -19,9 +19,13 @@ class CoinflipPvP(commands.Cog):
         opponent='Le joueur à défier',
         montant='Le montant à miser'
     )
-    @app_commands.checks.cooldown(1, 30, key=lambda i: i.user.id)
     async def duel(self, interaction: discord.Interaction, opponent: discord.Member, montant: int):
         """Défier quelqu'un en coinflip! 🪙 Gagnant prend tout!"""
+
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "duel")
+        if not can_play:
+            return await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
 
         if opponent.bot:
             return await interaction.response.send_message("❌ Tu ne peux pas défier un bot!")
@@ -31,6 +35,9 @@ class CoinflipPvP(commands.Cog):
 
         if montant <= 0:
             return await interaction.response.send_message("❌ Montant invalide!")
+
+        if montant > MAX_BET_AMOUNT:
+            return await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
 
         challenger_profile = get_user_profile(interaction.user.id, interaction.guild.id)
         opponent_profile = get_user_profile(opponent.id, interaction.guild.id)
@@ -72,8 +79,11 @@ class CoinflipPvP(commands.Cog):
                 return await interaction.followup.send(f"❌ {opponent.mention} a refusé le duel!")
 
             # Déduire les mises
+            db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "duel bet")
+            db.modify_balance(opponent.id, interaction.guild.id, -montant, "duel bet")
             challenger_profile['balance'] -= montant
             opponent_profile['balance'] -= montant
+
             # Lancer la pièce
             embed = discord.Embed(
                 title="🪙 Coinflip Duel!",
@@ -86,20 +96,32 @@ class CoinflipPvP(commands.Cog):
             winner = random.choice([interaction.user, opponent])
             loser = opponent if winner == interaction.user else interaction.user
 
-            winner_profile = get_user_profile(winner.id, interaction.guild.id)
-            loser_profile = get_user_profile(loser.id, interaction.guild.id)
-
-            # Distribuer les gains
+            # Distribuer les gains - le gagnant reçoit le total pot (sa mise + la mise du perdant)
             total_pot = montant * 2
-            winner_profile['balance'] += total_pot
-            winner_profile['gambling_profit'] += montant
-            winner_profile['games_won'] += 1
+            profit = montant  # Le gagnant gagne la mise de l'adversaire
 
-            loser_profile['gambling_profit'] -= montant
-            loser_profile['games_lost'] += 1
+            # Mise à jour gagnant
+            new_winner_balance = db.modify_balance(winner.id, interaction.guild.id, total_pot, "duel win")
+            winner_profile = get_user_profile(winner.id, interaction.guild.id)
+            db.update_user_profile(
+                winner.id,
+                interaction.guild.id,
+                gambling_profit=winner_profile['gambling_profit'] + profit,
+                games_won=winner_profile['games_won'] + 1,
+                games_played=winner_profile['games_played'] + 1,
+                total_wagered=winner_profile['total_wagered'] + montant
+            )
 
-            winner_profile['games_played'] += 1
-            loser_profile['games_played'] += 1
+            # Mise à jour perdant
+            loser_profile = get_user_profile(loser.id, interaction.guild.id)
+            db.update_user_profile(
+                loser.id,
+                interaction.guild.id,
+                gambling_profit=loser_profile['gambling_profit'] - montant,
+                games_lost=loser_profile['games_lost'] + 1,
+                games_played=loser_profile['games_played'] + 1,
+                total_wagered=loser_profile['total_wagered'] + montant
+            )
 
             add_xp(winner.id, interaction.guild.id, 30)
             add_xp(loser.id, interaction.guild.id, 10)

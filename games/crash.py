@@ -5,7 +5,7 @@ import random
 import asyncio
 import sys
 sys.path.append('..')
-from bot import get_user_profile, CURRENCY_NAME, add_xp
+from bot import get_user_profile, CURRENCY_NAME, add_xp, check_cooldown, MAX_BET_AMOUNT, MAX_WIN_AMOUNT
 from database import db
 
 class CrashView(discord.ui.View):
@@ -29,13 +29,21 @@ class CrashView(discord.ui.View):
             item.disabled = True
 
         winnings = int(self.amount * self.multiplier)
+        # Appliquer la limite de gain maximum
+        if winnings > MAX_WIN_AMOUNT:
+            winnings = MAX_WIN_AMOUNT
         profit = winnings - self.amount
 
-        self.profile['balance'] += profit
-        self.profile['gambling_profit'] += profit
-        self.profile['games_won'] += 1
-        self.profile['games_played'] += 1
-        self.profile['total_wagered'] += self.amount
+        new_balance = db.modify_balance(interaction.user.id, interaction.guild.id, profit, "crash win")
+        db.update_user_profile(
+            interaction.user.id,
+            interaction.guild.id,
+            gambling_profit=self.profile['gambling_profit'] + profit,
+            games_won=self.profile['games_won'] + 1,
+            games_played=self.profile['games_played'] + 1,
+            total_wagered=self.profile['total_wagered'] + self.amount
+        )
+        self.profile['balance'] = new_balance
 
         add_xp(self.interaction.user.id, self.interaction.guild.id, int(20 * self.multiplier))
         embed = discord.Embed(
@@ -54,7 +62,6 @@ class Crash(commands.Cog):
 
     @app_commands.command(name='crash', description='Jeu Crash! Cash out avant le crash!')
     @app_commands.describe(montant='Le montant à miser')
-    @app_commands.checks.cooldown(1, 10, key=lambda i: i.user.id)
     async def crash(self, interaction: discord.Interaction, montant: int):
         """
         Jeu Crash! 🚀
@@ -63,8 +70,18 @@ class Crash(commands.Cog):
         Plus tu attends, plus tu gagnes... ou perds tout!
         """
 
+        # Vérifier le cooldown
+        can_play, remaining = check_cooldown(interaction.user.id, "crash")
+        if not can_play:
+            await interaction.response.send_message(f"⏰ Cooldown! Réessaye dans {remaining:.1f}s")
+            return
+
         if montant <= 0:
             await interaction.response.send_message("❌ Le montant doit être positif!")
+            return
+
+        if montant > MAX_BET_AMOUNT:
+            await interaction.response.send_message(f"❌ La mise maximum est de {MAX_BET_AMOUNT} {CURRENCY_NAME}s!")
             return
 
         profile = get_user_profile(interaction.user.id, interaction.guild.id)
@@ -73,6 +90,7 @@ class Crash(commands.Cog):
             await interaction.response.send_message(f"❌ Pas assez de {CURRENCY_NAME}s!")
             return
 
+        db.modify_balance(interaction.user.id, interaction.guild.id, -montant, "crash bet")
         profile['balance'] -= montant
         view = CrashView(interaction, montant, profile)
 
@@ -101,10 +119,14 @@ class Crash(commands.Cog):
             for item in view.children:
                 item.disabled = True
 
-            profile['gambling_profit'] -= montant
-            profile['games_lost'] += 1
-            profile['games_played'] += 1
-            profile['total_wagered'] += montant
+            db.update_user_profile(
+                interaction.user.id,
+                interaction.guild.id,
+                gambling_profit=profile['gambling_profit'] - montant,
+                games_lost=profile['games_lost'] + 1,
+                games_played=profile['games_played'] + 1,
+                total_wagered=profile['total_wagered'] + montant
+            )
             embed = discord.Embed(
                 title="💥 CRASH!",
                 description=f"**Crash à:** {crash_point:.2f}x\n**Perte:** -{montant:,} {CURRENCY_NAME}s",
