@@ -14,6 +14,9 @@ PREFIX = "!"
 CURRENCY_NAME = "Skull"
 CURRENCY_EMOJI = "💀"
 
+# ID du serveur Discord (pour sync rapide des commandes)
+GUILD_ID = 1333458449337552967  # Ton serveur Discord
+
 # Limites de jeu
 MAX_BET_AMOUNT = 50  # Mise maximum pour les jeux normaux
 MAX_WIN_AMOUNT = 340  # Gain maximum pour les jeux normaux
@@ -157,10 +160,12 @@ async def on_ready():
             await guild.leave()
             print(f"[SECURITY] Quitte le serveur {guild.name} - Owner non present")
 
-    # Synchroniser les commandes slash
+    # Synchroniser les commandes slash (GUILD-SPECIFIC pour sync rapide ~1 minute)
     try:
-        synced = await bot.tree.sync()
-        print(f'[SYSTEM] {len(synced)} commandes slash synchronisees!')
+        guild = discord.Object(id=GUILD_ID)
+        synced = await bot.tree.sync(guild=guild)
+        print(f'[SYSTEM] {len(synced)} commandes slash synchronisees pour le serveur {GUILD_ID}!')
+        print(f'[SYSTEM] Les commandes apparaitront dans Discord dans ~1 minute maximum')
     except Exception as e:
         print(f'[ERROR] Erreur sync commandes: {e}')
 
