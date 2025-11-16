@@ -153,21 +153,14 @@ async def on_ready():
     print(f'[SYSTEM] Bot connecte en tant que {bot.user}')
     print(f'[SYSTEM] Monnaie: {CURRENCY_NAME} {CURRENCY_EMOJI}')
 
-    # Vérifier tous les serveurs
+    # Vérifier dans quels serveurs le bot est
+    print(f'[SYSTEM] Connecte a {len(bot.guilds)} serveur(s):')
     for guild in bot.guilds:
+        print(f'[SYSTEM]   - {guild.name} (ID: {guild.id})')
         owner = guild.get_member(OWNER_ID)
         if not owner:
             await guild.leave()
             print(f"[SECURITY] Quitte le serveur {guild.name} - Owner non present")
-
-    # Synchroniser les commandes slash (GUILD-SPECIFIC pour sync rapide ~1 minute)
-    try:
-        guild = discord.Object(id=GUILD_ID)
-        synced = await bot.tree.sync(guild=guild)
-        print(f'[SYSTEM] {len(synced)} commandes slash synchronisees pour le serveur {GUILD_ID}!')
-        print(f'[SYSTEM] Les commandes apparaitront dans Discord dans ~1 minute maximum')
-    except Exception as e:
-        print(f'[ERROR] Erreur sync commandes: {e}')
 
     # Démarrer le backup automatique
     bot.loop.create_task(auto_backup())
@@ -386,7 +379,19 @@ async def on_command_error(ctx, error):
 
 async def main():
     async with bot:
+        # Charger TOUS les cogs AVANT de démarrer
         await load_extensions()
+
+        # Synchroniser les commandes APRÈS avoir chargé les cogs
+        print(f'\n[SYNC] Synchronisation des commandes slash...')
+        try:
+            guild = discord.Object(id=GUILD_ID)
+            synced = await bot.tree.sync(guild=guild)
+            print(f'[SYNC] ✅ {len(synced)} commandes synchronisees pour le serveur {GUILD_ID}!')
+            print(f'[SYNC] Les commandes apparaitront dans Discord dans ~1 minute\n')
+        except Exception as e:
+            print(f'[SYNC] ❌ Erreur sync: {e}\n')
+
         try:
             # Récupérer le token depuis les variables d'environnement
             import os
